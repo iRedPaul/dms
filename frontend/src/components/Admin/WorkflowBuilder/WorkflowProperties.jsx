@@ -7,7 +7,6 @@ import {
   Select,
   MenuItem,
   Typography,
-  Divider,
   Button,
   Grid,
   IconButton,
@@ -19,7 +18,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
   useTheme
 } from '@mui/material';
 import {
@@ -31,7 +29,6 @@ import api from '../../../services/api';
 
 // Eigenschaften-Editor für Workflow-Knoten
 const WorkflowProperties = ({ node, updateNodeData }) => {
-  const theme = useTheme();
   const [users, setUsers] = useState([]);
   const [stepData, setStepData] = useState(node.data.step);
   const [openFormDialog, setOpenFormDialog] = useState(false);
@@ -64,7 +61,7 @@ const WorkflowProperties = ({ node, updateNodeData }) => {
     }
     
     fetchUsers();
-  }, []);
+  }, [stepData]);
   
   // Daten aktualisieren
   const handleInputChange = (e) => {
@@ -309,7 +306,7 @@ const WorkflowProperties = ({ node, updateNodeData }) => {
                 name="assignedToValue"
                 value={stepData.assignedTo?.value || ''}
                 onChange={handleAssignmentValueChange}
-                helperText="z.B. ${document.metadata.department}"
+                helperText="z.B. document.metadata.department"
               />
             )}
           </Box>
