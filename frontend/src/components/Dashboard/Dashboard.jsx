@@ -25,12 +25,11 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import api from '../../services/api';
+// Will be used for API calls in a real implementation
+// import api from '../../services/api';
 
 // Statistik-Karte Komponente
 const StatCard = ({ title, value, icon, color, onClick }) => {
-  const theme = useTheme();
-  
   return (
     <Card 
       sx={{ 
