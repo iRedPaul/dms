@@ -11,8 +11,7 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
-  useTheme,
-  useMediaQuery
+  useTheme
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -23,7 +22,6 @@ import { AuthContext } from '../../context/AuthContext';
 
 const Login = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, loading } = useContext(AuthContext);
