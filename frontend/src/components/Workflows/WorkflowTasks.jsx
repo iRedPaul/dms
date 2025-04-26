@@ -101,7 +101,8 @@ const generateDummyTasks = () => {
   const taskTypes = ['approve', 'review', 'sign', 'process'];
   const priorityLevels = ['low', 'medium', 'high'];
   
-  const now = new Date();
+  // Commented out as it was unused
+  // const now = new Date();
   
   for (let i = 1; i <= 30; i++) {
     const docType = types[Math.floor(Math.random() * types.length)];
@@ -222,7 +223,8 @@ const generateDummyTasks = () => {
 const WorkflowTasks = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+  // Added comment to indicate intended usage
+  const { user } = useContext(AuthContext); // Will be used for user-specific tasks in a real implementation
   
   // Tab-State
   const [tabValue, setTabValue] = useState(0);
