@@ -36,7 +36,6 @@ import {
   Restore as RestoreIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  Description as DocumentIcon,
   Receipt as InvoiceIcon,
   Assignment as ContractIcon,
   Assessment as ReportIcon,
@@ -46,7 +45,6 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import api from '../../services/api';
 
 // Dokument-Typen mit Icons
 const documentTypes = {
