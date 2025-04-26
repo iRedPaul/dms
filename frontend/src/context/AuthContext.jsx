@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import jwtDecode from 'jwt-decode';
 import api from '../services/api';
@@ -12,14 +12,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Logout-Funktion
-  const logout = () => {
+  // Logout-Funktion - with useCallback to avoid infinite re-renders
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
     delete api.defaults.headers.common['Authorization'];
     navigate('/login');
-  };
+  }, [navigate]);
 
   // Beim ersten Laden überprüfen, ob ein gültiges Token vorhanden ist
   useEffect(() => {
@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
-  }, [token, logout]); // logout als Abhängigkeit hinzugefügt
+  }, [token, logout]); // logout as dependency is now safe with useCallback
 
   // Login-Funktion
   const login = async (username, password) => {
