@@ -36,8 +36,8 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={de}>
-        <AuthProvider>
-          <Router>
+        <Router>
+          <AuthProvider>
             <Routes>
               {/* Öffentliche Routen */}
               <Route path="/login" element={<Login />} />
@@ -66,8 +66,8 @@ function App() {
               {/* Fallback-Route */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </Router>
-        </AuthProvider>
+          </AuthProvider>
+        </Router>
       </LocalizationProvider>
     </ThemeProvider>
   );
