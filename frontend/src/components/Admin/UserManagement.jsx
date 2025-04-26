@@ -29,7 +29,6 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  useTheme,
   InputAdornment
 } from '@mui/material';
 import {
@@ -140,8 +139,6 @@ const generateDummyUsers = () => {
 };
 
 const UserManagement = () => {
-  const theme = useTheme();
-  
   // State für Benutzerliste
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
