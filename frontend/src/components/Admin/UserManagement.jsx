@@ -43,13 +43,10 @@ import {
   Settings as SettingsIcon,
   ThumbUp as ApproverIcon,
   Person as UserIcon,
-  Visibility as ReadOnlyIcon,
-  MoreVert as MoreIcon,
-  FilterList as FilterIcon
+  Visibility as ReadOnlyIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import api from '../../services/api';
 
 // Rollen mit Icons und Farben
 const userRoles = {
