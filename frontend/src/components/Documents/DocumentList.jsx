@@ -38,7 +38,6 @@ import {
   Visibility as ViewIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Download as DownloadIcon,
   Archive as ArchiveIcon,
   Description as DocumentIcon,
   Receipt as InvoiceIcon,
@@ -47,7 +46,6 @@ import {
   FileCopy as FormIcon,
   Folder as OtherIcon
 } from '@mui/icons-material';
-import api from '../../services/api';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
