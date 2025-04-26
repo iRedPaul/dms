@@ -51,7 +51,8 @@ import {
 import { AuthContext } from '../../context/AuthContext';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import api from '../../services/api';
+// Will be used for API calls in a real implementation
+// import api from '../../services/api';
 
 // Dokument-Typen mit Icons
 const documentTypes = {
@@ -169,6 +170,7 @@ const InboxView = () => {
   const { id } = useParams();
   const theme = useTheme();
   const navigate = useNavigate();
+  // Will be used for user-specific functionality in a real implementation
   const { user } = useContext(AuthContext);
   
   // State für Postkorb und Dokumente
