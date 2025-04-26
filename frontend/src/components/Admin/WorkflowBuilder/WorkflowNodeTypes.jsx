@@ -171,7 +171,7 @@ const ArchiveNode = ({ data }) => {
 };
 
 // Exportieren aller Knotentypen als Objekt
-export default {
+const nodeTypes = {
   upload: UploadNode,
   form: FormNode,
   approval: ApprovalNode,
@@ -179,3 +179,5 @@ export default {
   condition: ConditionNode,
   archive: ArchiveNode
 };
+
+export default nodeTypes;
