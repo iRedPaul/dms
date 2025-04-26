@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-// API-Basis-URL (wird von der Nginx-Konfiguration weitergeleitet)
-// Hier /api als Prefix entfernen um die doppelte Angabe zu vermeiden
+// API-Basis-URL (keine Änderung hier, da wir den vollen Pfad in den Requests verwenden werden)
 const baseURL = '';
 
 // Axios-Instanz mit Basiseinstellungen
