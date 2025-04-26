@@ -8,13 +8,10 @@ import {
   Chip,
   Divider,
   Grid,
-  Card,
-  CardContent,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  IconButton,
   Menu,
   MenuItem,
   CircularProgress,
@@ -33,7 +30,6 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Archive as ArchiveIcon,
-  History as HistoryIcon,
   PlayArrow as StartIcon,
   MoreVert as MoreIcon,
   Person as PersonIcon,
@@ -48,13 +44,8 @@ import {
   FileCopy as FormIcon,
   Folder as OtherIcon
 } from '@mui/icons-material';
-import { Document, Page, pdfjs } from 'react-pdf';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import api from '../../services/api';
-
-// PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 // Dokument-Typen mit Icons
 const documentTypes = {
@@ -196,8 +187,6 @@ const DocumentView = () => {
   const [document, setDocument] = useState(null);
   const [workflowHistory, setWorkflowHistory] = useState([]);
   const [availableWorkflows, setAvailableWorkflows] = useState([]);
-  const [numPages, setNumPages] = useState(null);
-  const [pageNumber, setPageNumber] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
@@ -336,11 +325,6 @@ const DocumentView = () => {
         completedAt: null
       }
     });
-  };
-  
-  // PDF-Handler
-  const onDocumentLoadSuccess = ({ numPages }) => {
-    setNumPages(numPages);
   };
   
   // Tab-Handler
