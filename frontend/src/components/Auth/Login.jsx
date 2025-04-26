@@ -10,8 +10,7 @@ import {
   Alert,
   CircularProgress,
   InputAdornment,
-  IconButton,
-  useTheme
+  IconButton
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -21,7 +20,6 @@ import {
 import { AuthContext } from '../../context/AuthContext';
 
 const Login = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, loading } = useContext(AuthContext);
