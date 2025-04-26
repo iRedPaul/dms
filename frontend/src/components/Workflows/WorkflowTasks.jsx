@@ -16,7 +16,6 @@ import {
   TablePagination,
   Chip,
   IconButton,
-  Avatar,
   Tooltip,
   Menu,
   MenuItem,
@@ -33,7 +32,6 @@ import {
 } from '@mui/material';
 import {
   Task as TaskIcon,
-  Description as DocumentIcon,
   ThumbUp as ApproveIcon,
   ThumbDown as RejectIcon,
   Comment as CommentIcon,
@@ -51,9 +49,8 @@ import {
   Folder as OtherIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../../context/AuthContext';
-import { format, isAfter, isBefore, parseISO, addDays } from 'date-fns';
+import { format, isBefore, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
-import api from '../../services/api';
 
 // Dokument-Typen mit Icons
 const documentTypes = {
@@ -103,7 +100,6 @@ const generateDummyTasks = () => {
   const types = Object.keys(documentTypes);
   const taskTypes = ['approve', 'review', 'sign', 'process'];
   const priorityLevels = ['low', 'medium', 'high'];
-  const statuses = ['pending', 'in_progress', 'completed', 'rejected'];
   
   const now = new Date();
   
