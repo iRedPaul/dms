@@ -38,7 +38,8 @@ export const AuthProvider = ({ children }) => {
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             
             // Benutzerdaten abrufen
-            const response = await api.get('/api/auth/me');
+            // WICHTIG: Pfad ist /api/api/auth/me
+            const response = await api.get('/api/api/auth/me');
             setUser(response.data);
           }
         } catch (error) {
@@ -50,12 +51,13 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
-  }, [token, logout]); // logout as dependency is now safe with useCallback
+  }, [token, logout]);
 
   // Login-Funktion
   const login = async (username, password) => {
     try {
-      const response = await api.post('/api/auth/login', { username, password });
+      // WICHTIG: Wir senden die Anfrage an /api/api/auth/login
+      const response = await api.post('/api/api/auth/login', { username, password });
       const { token: newToken, user: userData } = response.data;
       
       // Token und Benutzerdaten speichern
@@ -79,7 +81,8 @@ export const AuthProvider = ({ children }) => {
   // Passwort ändern
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      await api.put('/api/auth/change-password', {
+      // WICHTIG: Pfad ist /api/api/auth/change-password
+      await api.put('/api/api/auth/change-password', {
         currentPassword,
         newPassword
       });
