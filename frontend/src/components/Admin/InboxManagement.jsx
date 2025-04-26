@@ -29,7 +29,6 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  useTheme,
   InputAdornment,
   List,
   ListItem,
@@ -220,8 +219,6 @@ const generateDummyUsers = () => [
 ];
 
 const InboxManagement = () => {
-  const theme = useTheme();
-  
   // State für Postkorbliste
   const [inboxes, setInboxes] = useState([]);
   const [filteredInboxes, setFilteredInboxes] = useState([]);
