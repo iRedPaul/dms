@@ -12,6 +12,15 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Logout-Funktion
+  const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+    delete api.defaults.headers.common['Authorization'];
+    navigate('/login');
+  };
+
   // Beim ersten Laden überprüfen, ob ein gültiges Token vorhanden ist
   useEffect(() => {
     const checkAuth = async () => {
@@ -41,7 +50,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
-  }, [token]);
+  }, [token, logout]); // logout als Abhängigkeit hinzugefügt
 
   // Login-Funktion
   const login = async (username, password) => {
@@ -65,15 +74,6 @@ export const AuthProvider = ({ children }) => {
         message: error.response?.data?.message || 'Fehler bei der Anmeldung'
       };
     }
-  };
-
-  // Logout-Funktion
-  const logout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
-    setUser(null);
-    delete api.defaults.headers.common['Authorization'];
-    navigate('/login');
   };
 
   // Passwort ändern
