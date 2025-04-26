@@ -49,13 +49,11 @@ import {
   AccountTree as WorkflowIcon,
   Settings as SystemIcon,
   Email as EmailIcon,
-  Notifications as NotificationIcon,
   People as PeopleIcon,
   DeleteSweep as ClearIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import api from '../../services/api';
 
 // Postkorb-Typen mit Icons und Farben
 const inboxTypes = {
