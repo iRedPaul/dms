@@ -32,10 +32,7 @@ import {
 } from '@mui/material';
 import {
   Save as SaveIcon,
-  PlayArrow as StartIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Help as HelpIcon
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 
 // Import der benutzerdefinierten Knotentypen
@@ -108,15 +105,8 @@ const WorkflowDesigner = () => {
   // Knotentypen initialisieren
   const nodeTypes = StepNodes;
 
-  // Workflow laden, wenn ID vorhanden
-  useEffect(() => {
-    if (id && id !== 'new') {
-      loadWorkflow(id);
-    }
-  }, [id]);
-
   // Workflow aus der API laden
-  const loadWorkflow = async (workflowId) => {
+  const loadWorkflow = useCallback(async (workflowId) => {
     try {
       setIsLoading(true);
       const response = await api.get(`/api/workflows/${workflowId}`);
@@ -157,7 +147,14 @@ const WorkflowDesigner = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setNodes, setEdges]);
+
+  // Workflow laden, wenn ID vorhanden
+  useEffect(() => {
+    if (id && id !== 'new') {
+      loadWorkflow(id);
+    }
+  }, [id, loadWorkflow]);
 
   // Verbindungen zwischen Knoten hinzufügen
   const onConnect = useCallback(
