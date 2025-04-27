@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// API-Basis-URL (keine Änderung hier, da wir den vollen Pfad in den Requests verwenden werden)
-const baseURL = '';
+// Direkte IP-Adresse verwenden
+const baseURL = 'http://10.17.1.12';
 
 // Axios-Instanz mit Basiseinstellungen
 const api = axios.create({
