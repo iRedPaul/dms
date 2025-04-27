@@ -20,9 +20,14 @@ import {
 import { AuthContext } from '../../context/AuthContext';
 
 const Login = () => {
+  console.log('=== LOGIN COMPONENT RENDERED ===');
+  
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, loading } = useContext(AuthContext);
+  
+  console.log('Auth context state:', { isAuthenticated, loading });
+  console.log('Current location:', location);
   
   const [formData, setFormData] = useState({
     username: '',
@@ -31,17 +36,28 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Debug info as component mounts
+  useEffect(() => {
+    console.log('Login component mounted or updated');
+    console.log('Redirect state:', location.state);
+  }, [location]);
 
   // Wenn bereits authentifiziert, zur ursprünglichen Seite oder zum Dashboard weiterleiten
   useEffect(() => {
+    console.log('Authentication status changed:', { isAuthenticated, loading });
+    
     if (isAuthenticated && !loading) {
       const redirectTo = location.state?.from?.pathname || '/';
+      console.log(`User is authenticated, redirecting to: ${redirectTo}`);
       navigate(redirectTo);
     }
   }, [isAuthenticated, loading, navigate, location]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Form field '${name}' changed`);
+    
     setFormData({
       ...formData,
       [name]: value
@@ -50,32 +66,43 @@ const Login = () => {
 
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+    console.log(`Password visibility toggled to: ${!showPassword}`);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('=== LOGIN FORM SUBMITTED ===');
+    console.log('Form data:', { ...formData, password: '********' });
+    
     setIsSubmitting(true);
     setError(null);
 
     const { username, password } = formData;
 
     if (!username || !password) {
+      console.log('Missing required fields');
       setError('Bitte geben Sie Benutzername und Passwort ein.');
       setIsSubmitting(false);
       return;
     }
 
     try {
+      console.log('Calling login function from AuthContext');
       const result = await login(username, password);
+      console.log('Login result:', result);
       
       if (!result.success) {
+        console.log('Login failed:', result.message);
         setError(result.message);
+      } else {
+        console.log('Login successful');
       }
     } catch (err) {
+      console.error('Unexpected error during login:', err);
       setError('Ein unerwarteter Fehler ist aufgetreten.');
-      console.error(err);
     } finally {
       setIsSubmitting(false);
+      console.log('Form submission complete');
     }
   };
 
