@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Direkte IP-Adresse verwenden
-const baseURL = 'http://10.17.1.12';
+// Use relative URL instead of direct IP address
+// This will make the requests go through the nginx proxy
+const baseURL = '';  // Empty string means same origin
 
 // Axios-Instanz mit Basiseinstellungen
 const api = axios.create({
