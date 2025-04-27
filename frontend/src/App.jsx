@@ -42,6 +42,14 @@ function App() {
               {/* Öffentliche Routen */}
               <Route path="/login" element={<Login />} />
               
+              {/* NOTFALLZUGANG - NACH DEM TEST ENTFERNEN! */}
+              <Route path="/emergency-access" element={<Layout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="documents" element={<DocumentList />} />
+                <Route path="admin" element={<AdminDashboard />} />
+                <Route path="admin/users" element={<UserManagement />} />
+              </Route>
+              
               {/* Geschützte Routen */}
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Dashboard />} />
