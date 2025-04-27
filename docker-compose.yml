@@ -25,7 +25,7 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - MONGO_URI=mongodb://root:secure_password@mongo:27017/dms?authSource=admin
+      - MONGO_URI=mongodb://root:30dgBP2TGxmcC4bT@mongo:27017/dms?authSource=admin
       - JWT_SECRET=gXoGFL3EyOpawidI
       - ADMIN_USER=admin
       - ADMIN_PASSWORD=admin
@@ -48,7 +48,7 @@ services:
       - /opt/dms-system/storage-service:/app
       - dms_document_storage:/storage
     environment:
-      - MONGO_URI=mongodb://root:secure_password@mongo:27017/dms?authSource=admin
+      - MONGO_URI=mongodb://root:30dgBP2TGxmcC4bT@mongo:27017/dms?authSource=admin
       - JWT_SECRET=gXoGFL3EyOpawidI
       - PORT=5000
       - STORAGE_PATH=/storage
