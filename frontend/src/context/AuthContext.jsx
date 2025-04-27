@@ -37,9 +37,8 @@ export const AuthProvider = ({ children }) => {
             // API-Header für Token setzen
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             
-            // Benutzerdaten abrufen
-            // WICHTIG: Pfad ist /api/api/auth/me
-            const response = await api.get('/api/api/auth/me');
+            // Benutzerdaten abrufen - richtige Route verwenden
+            const response = await api.get('/api/auth/me');
             setUser(response.data);
           }
         } catch (error) {
@@ -56,8 +55,8 @@ export const AuthProvider = ({ children }) => {
   // Login-Funktion
   const login = async (username, password) => {
     try {
-      // WICHTIG: Wir senden die Anfrage an /api/api/auth/login
-      const response = await api.post('/api/api/auth/login', { username, password });
+      // Richtige URL verwenden
+      const response = await api.post('/api/auth/login', { username, password });
       const { token: newToken, user: userData } = response.data;
       
       // Token und Benutzerdaten speichern
@@ -81,8 +80,8 @@ export const AuthProvider = ({ children }) => {
   // Passwort ändern
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      // WICHTIG: Pfad ist /api/api/auth/change-password
-      await api.put('/api/api/auth/change-password', {
+      // Richtige URL verwenden
+      await api.put('/api/auth/change-password', {
         currentPassword,
         newPassword
       });
