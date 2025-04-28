@@ -7,11 +7,16 @@ import {
   DialogActions,
   Button,
   Typography,
-  Box
+  Box,
+  IconButton,
+  Divider,
+  useTheme
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';
 import ErrorIcon from '@mui/icons-material/Error';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CloseIcon from '@mui/icons-material/Close';
 
 /**
  * Reusable dialog component for confirmations and alerts
@@ -24,22 +29,31 @@ function DialogComponent({
   onConfirm,
   confirmText = 'Bestätigen',
   cancelText = 'Abbrechen',
-  type = 'confirm', // 'confirm', 'info', 'warning', 'error'
-  confirmColor = 'primary' // 'primary', 'error', etc.
+  type = 'confirm', // 'confirm', 'info', 'warning', 'error', 'success'
+  confirmColor = 'primary', // 'primary', 'error', etc.
+  maxWidth = 'sm',
+  showCloseIcon = false,
+  children
 }) {
-  // Get icon based on dialog type
-  const getIcon = () => {
+  const theme = useTheme();
+  
+  // Get icon and color based on dialog type
+  const getIconAndColor = () => {
     switch (type) {
       case 'info':
-        return <InfoIcon sx={{ color: 'info.main', fontSize: 32 }} />;
+        return { icon: <InfoIcon sx={{ fontSize: 36 }} />, color: theme.palette.info.main };
       case 'warning':
-        return <WarningIcon sx={{ color: 'warning.main', fontSize: 32 }} />;
+        return { icon: <WarningIcon sx={{ fontSize: 36 }} />, color: theme.palette.warning.main };
       case 'error':
-        return <ErrorIcon sx={{ color: 'error.main', fontSize: 32 }} />;
+        return { icon: <ErrorIcon sx={{ fontSize: 36 }} />, color: theme.palette.error.main };
+      case 'success':
+        return { icon: <CheckCircleIcon sx={{ fontSize: 36 }} />, color: theme.palette.success.main };
       default:
-        return null;
+        return { icon: <InfoIcon sx={{ fontSize: 36 }} />, color: theme.palette.primary.main };
     }
   };
+
+  const { icon, color } = getIconAndColor();
 
   return (
     <Dialog
@@ -47,23 +61,88 @@ function DialogComponent({
       onClose={onClose}
       aria-labelledby="dialog-title"
       aria-describedby="dialog-description"
+      maxWidth={maxWidth}
+      fullWidth
+      PaperProps={{
+        sx: { borderRadius: 3 }
+      }}
     >
-      <DialogTitle id="dialog-title">
-        <Box display="flex" alignItems="center" gap={1}>
-          {getIcon()}
-          <Typography variant="h6" component="span">
-            {title}
-          </Typography>
+      <DialogTitle id="dialog-title" sx={{ pb: 2 }}>
+        <Box 
+          display="flex" 
+          alignItems="center" 
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                backgroundColor: `${color}10`,
+                color: color
+              }}
+            >
+              {icon}
+            </Box>
+            <Typography 
+              variant="h6" 
+              component="span" 
+              fontWeight={500}
+              sx={{ 
+                color: 'text.primary',
+                fontFamily: '"Roboto", "Segoe UI", "Helvetica Neue", sans-serif'
+              }}
+            >
+              {title}
+            </Typography>
+          </Box>
+          
+          {showCloseIcon && (
+            <IconButton 
+              aria-label="close" 
+              onClick={onClose}
+              size="small"
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
       </DialogTitle>
-      <DialogContent>
-        <DialogContentText id="dialog-description">
-          {message}
-        </DialogContentText>
+      
+      <Divider />
+      
+      <DialogContent sx={{ pt: 3 }}>
+        {message && (
+          <DialogContentText 
+            id="dialog-description"
+            sx={{ 
+              color: 'text.primary',
+              mb: children ? 2 : 0,
+              fontFamily: '"Roboto", "Segoe UI", "Helvetica Neue", sans-serif'
+            }}
+          >
+            {message}
+          </DialogContentText>
+        )}
+        
+        {children}
       </DialogContent>
-      <DialogActions>
+      
+      <DialogActions sx={{ px: 3, py: 2.5 }}>
         {type === 'confirm' && (
-          <Button onClick={onClose} color="inherit">
+          <Button 
+            onClick={onClose} 
+            color="inherit"
+            variant="outlined"
+            sx={{ 
+              borderRadius: 2,
+              fontFamily: '"Roboto", "Segoe UI", "Helvetica Neue", sans-serif'
+            }}
+          >
             {cancelText}
           </Button>
         )}
@@ -72,6 +151,10 @@ function DialogComponent({
           color={confirmColor}
           variant={type === 'confirm' ? 'contained' : 'text'}
           autoFocus={type !== 'confirm'}
+          sx={{ 
+            borderRadius: 2,
+            fontFamily: '"Roboto", "Segoe UI", "Helvetica Neue", sans-serif'
+          }}
         >
           {confirmText}
         </Button>
