@@ -21,10 +21,15 @@ const theme = createTheme({
 });
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  
+  // Show loading state or prevent redirection while auth is being checked
+  if (loading) {
+    return <div>Loading...</div>;
+  }
   
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
   
   return children;
@@ -47,7 +52,7 @@ function App() {
               <DocumentViewer />
             </ProtectedRoute>
           } />
-          <Route path="*" element={<Navigate to="/" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </ThemeProvider>
