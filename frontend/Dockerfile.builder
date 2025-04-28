@@ -11,9 +11,9 @@ RUN npm install --legacy-peer-deps
 # Copy all source files
 COPY . .
 
-# Set environment variables for production build
+# Set environment variables for production build with Cloudflare domain
 ENV NODE_ENV=production
-ENV REACT_APP_API_URL=http://backend:4000
+ENV REACT_APP_API_URL=https://dms.home-lan.cc/api
 
 # Build the application
 RUN npm run build
