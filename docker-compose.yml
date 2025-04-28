@@ -9,7 +9,7 @@ services:
       - dms_mongo_data:/data/db
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_ROOT_PASSWORD: 34ZqYkXDdd4bgJ6gNUNACzsDyd
     networks:
       - dms-network
 
@@ -25,10 +25,10 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - MONGO_URI=mongodb://root:example@mongo:27017/dms?authSource=admin
-      - JWT_SECRET=geheimesToken123
+      - MONGO_URI=mongodb://root:34ZqYkXDdd4bgJ6gNUNACzsDyd@mongo:27017/dms?authSource=admin
+      - JWT_SECRET=r778AABeNpdBp7u7FWNJrkkkTC
       - ADMIN_USER=admin
-      - ADMIN_PASSWORD=admin
+      - ADMIN_PASSWORD=Test,123
       - PORT=4000
     command: sh -c "npm install && npm start"
     depends_on:
@@ -48,7 +48,7 @@ services:
         echo 'Installiere Dependencies...' &&
         npm install --legacy-peer-deps &&
         echo 'Erstelle optimierten Production Build...' &&
-        REACT_APP_API_URL=http://10.17.1.12:4000 npm run build &&
+        REACT_APP_API_URL=https://dms.home-lan.cc/api npm run build &&
         echo 'Build abgeschlossen!'
       "
     networks:
