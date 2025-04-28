@@ -4,7 +4,8 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install
+# Install dependencies with --legacy-peer-deps to handle potential peer dependency issues
+RUN npm install --legacy-peer-deps
 
 COPY . .
 
@@ -12,6 +13,7 @@ COPY . .
 ENV REACT_APP_API_URL=http://backend:4000
 ENV NODE_ENV=production
 
+# Build with the fixed environment
 RUN npm run build
 
 # Production stage
