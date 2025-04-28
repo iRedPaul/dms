@@ -36,8 +36,16 @@ function Dashboard() {
     setLoading(true);
     try {
       const res = await axios.get('/api/documents');
-      setDocuments(res.data);
-      setError('');
+      
+      // Ensure we got a proper array of documents
+      if (Array.isArray(res.data)) {
+        setDocuments(res.data);
+        setError('');
+      } else {
+        console.error('Invalid document data format:', res.data);
+        setDocuments([]);
+        setError('Fehler beim Laden der Dokumente: Ungültiges Datenformat');
+      }
     } catch (err) {
       console.error('Error fetching documents:', err);
       setError('Fehler beim Laden der Dokumente');
@@ -56,7 +64,9 @@ function Dashboard() {
   };
 
   const handleDocumentClick = (id) => {
-    navigate(`/documents/${id}`);
+    if (id) {
+      navigate(`/documents/${id}`);
+    }
   };
 
   const handleUploadSuccess = () => {
@@ -117,19 +127,20 @@ function Dashboard() {
           ) : (
             <List>
               {documents.map((doc, index) => (
-                <React.Fragment key={doc._id}>
+                <React.Fragment key={doc?._id || index}>
                   {index > 0 && <Divider />}
                   <ListItem 
                     button 
-                    onClick={() => handleDocumentClick(doc._id)}
+                    onClick={() => handleDocumentClick(doc?._id)}
                     sx={{ py: 2 }}
+                    disabled={!doc?._id}
                   >
                     <ListItemIcon>
                       <InsertDriveFileIcon color="primary" />
                     </ListItemIcon>
                     <ListItemText 
-                      primary={doc.name}
-                      secondary={`${formatFileSize(doc.size)} • Hochgeladen am ${formatDate(doc.createdAt)}`}
+                      primary={doc?.name || 'Unbenanntes Dokument'}
+                      secondary={`${formatFileSize(doc?.size || 0)} • Hochgeladen am ${formatDate(doc?.createdAt || new Date())}`}
                     />
                   </ListItem>
                 </React.Fragment>
