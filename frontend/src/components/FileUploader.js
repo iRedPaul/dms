@@ -11,7 +11,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid,
   Paper
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -138,8 +137,8 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
                 mr: 2 
               }} 
             />
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="subtitle1" noWrap>
+            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+              <Typography variant="subtitle1" noWrap title={file.name}>
                 {file.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
