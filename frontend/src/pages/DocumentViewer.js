@@ -73,9 +73,11 @@ function DocumentViewer() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Dynamic API URL based on environment with type safety
+  // Dynamic API URL based on environment with type safety (aktualisiert für Cloudflare)
   const API_URL = process.env.NODE_ENV === 'production' 
-    ? (process.env.REACT_APP_API_URL || 'http://localhost:4000')
+    ? (process.env.REACT_APP_API_URL 
+        ? process.env.REACT_APP_API_URL.substring(0, process.env.REACT_APP_API_URL.length - 4) // Entferne "/api" vom Ende
+        : 'https://dms.home-lan.cc')
     : `${window.location.protocol}//${window.location.hostname}:4000`;
 
   useEffect(() => {
