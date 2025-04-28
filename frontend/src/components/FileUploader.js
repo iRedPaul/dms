@@ -62,13 +62,8 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
 
     const formData = new FormData();
     
-    // Stellen Sie sicher, dass der Dateiname als UTF-8 gesendet wird
-    const fileWithCorrectEncoding = new File([file], file.name, {
-      type: file.type,
-      lastModified: file.lastModified,
-    });
-    
-    formData.append('file', fileWithCorrectEncoding);
+    // Verwende den Originaldateinamen - keine spezielle Codierung
+    formData.append('file', file);
     
     // Add mailbox ID if selected
     if (mailboxId) {
@@ -78,7 +73,7 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
     try {
       await axios.post('/api/documents/upload', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data; charset=utf-8'
+          'Content-Type': 'multipart/form-data' // Ohne charset-Parameter
         },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
