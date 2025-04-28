@@ -30,8 +30,7 @@ export const AuthProvider = ({ children }) => {
       console.log('API URL defaulted to: http://localhost:4000');
     }
 
-    // Globales Headers-Setup für alle Anfragen
-    axios.defaults.headers.common['Accept-Charset'] = 'utf-8';
+    // Globales Headers-Setup für alle Anfragen - WICHTIG: Keine 'unsafe' Header verwenden
     axios.defaults.headers.common['Content-Type'] = 'application/json; charset=utf-8';
 
     // Setup response interceptor for global error handling and response processing
