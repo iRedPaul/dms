@@ -24,6 +24,8 @@ app.use(fileUpload({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB max file size
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ charset: 'utf-8' }));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -174,4 +176,10 @@ app.get('/api/documents/:id', authMiddleware, async (req, res) => {
 app.listen(PORT, async () => {
   await createAdminUser();
   console.log(`Server running on port ${PORT}`);
+});
+
+// Set charset utf-8
+app.use((req, res, next) => {
+  res.header('Content-Type', 'application/json; charset=utf-8');
+  next();
 });
