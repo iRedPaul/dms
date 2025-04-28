@@ -12,25 +12,34 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Updated API URL handling - use window.location.origin in development
+  // Updated API URL handling to ensure string format
   const API_URL = process.env.NODE_ENV === 'production' 
     ? (process.env.REACT_APP_API_URL || 'http://localhost:4000')
     : `${window.location.protocol}//${window.location.hostname}:4000`;
 
   // Setup axios defaults
   useEffect(() => {
-    axios.defaults.baseURL = API_URL;
-    console.log('API URL set to:', API_URL);
+    if (typeof API_URL === 'string') {
+      axios.defaults.baseURL = API_URL;
+      console.log('API URL set to:', API_URL);
+    } else {
+      // Fallback to a safe default if API_URL is somehow not a string
+      axios.defaults.baseURL = 'http://localhost:4000';
+      console.log('API URL defaulted to: http://localhost:4000');
+    }
   }, [API_URL]);
 
-  // Add auth token to headers
+  // Add auth token to headers with type checking
   const setAuthToken = (token) => {
-    if (token) {
+    if (token && typeof token === 'string') {
       axios.defaults.headers.common['x-auth-token'] = token;
       localStorage.setItem('token', token);
     } else {
       delete axios.defaults.headers.common['x-auth-token'];
       localStorage.removeItem('token');
+      if (token && typeof token !== 'string') {
+        console.error('Invalid token format: token must be a string');
+      }
     }
   };
 
@@ -39,7 +48,14 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Attempting login to:', `${axios.defaults.baseURL}/api/auth/login`);
       const res = await axios.post('/api/auth/login', { username, password });
+      
+      // Validate token format before setting it
       const { token, user } = res.data;
+      
+      if (!token || typeof token !== 'string') {
+        console.error('Invalid token received from server');
+        return false;
+      }
       
       setAuthToken(token);
       setCurrentUser(user);
@@ -62,7 +78,7 @@ export const AuthProvider = ({ children }) => {
   const loadUser = async () => {
     const token = localStorage.getItem('token');
     
-    if (token) {
+    if (token && typeof token === 'string') {
       setAuthToken(token);
       try {
         const res = await axios.get('/api/auth/user');
