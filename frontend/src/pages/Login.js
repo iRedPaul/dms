@@ -4,12 +4,11 @@ import {
   Avatar,
   Button,
   TextField,
-  Paper,
   Box,
-  Grid,
   Typography,
   Container,
-  Alert
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useAuth } from '../context/AuthContext';
@@ -20,14 +19,15 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
+    // Only redirect if authentication is confirmed and not in the process of checking
+    if (isAuthenticated && !authLoading) {
+      navigate('/', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,11 +39,16 @@ function Login() {
     }
     
     setLoading(true);
-    const success = await login(username, password);
-    setLoading(false);
-    
-    if (!success) {
-      setError('Ungültiger Benutzername oder Passwort');
+    try {
+      const success = await login(username, password);
+      if (!success) {
+        setError('Ungültiger Benutzername oder Passwort');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,6 +87,7 @@ function Login() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoFocus
+            disabled={loading}
           />
           <TextField
             margin="normal"
@@ -94,6 +100,7 @@ function Login() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
           />
           <Button
             type="submit"
@@ -101,6 +108,7 @@ function Login() {
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
             disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
           >
             {loading ? 'Anmelden...' : 'Anmelden'}
           </Button>
