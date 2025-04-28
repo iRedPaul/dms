@@ -8,9 +8,18 @@ import {
   Typography,
   Container,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Paper,
+  Grid,
+  InputAdornment,
+  IconButton,
+  Card,
+  CardContent,
+  Divider
 } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../context/AuthContext';
 
 function Login() {
@@ -18,6 +27,7 @@ function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const { login, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -52,72 +62,164 @@ function Login() {
     }
   };
 
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
-          <LockOutlinedIcon />
-        </Avatar>
-        <Typography component="h1" variant="h5">
-          DMS System Login
-        </Typography>
-        
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-        
-        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="username"
-            label="Benutzername"
-            name="username"
-            autoComplete="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoFocus
-            disabled={loading}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Passwort"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: '#f5f7fa',
+        py: 4
+      }}
+    >
+      <Container maxWidth="sm">
+        <Card
+          elevation={4}
+          sx={{
+            borderRadius: 3,
+            overflow: 'hidden',
+            mb: 4
+          }}
+        >
+          <Box
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              p: 3,
+              textAlign: 'center'
+            }}
           >
-            {loading ? 'Anmelden...' : 'Anmelden'}
-          </Button>
+            <Typography variant="h4" gutterBottom>
+              DMS System
+            </Typography>
+            <Typography variant="subtitle1">
+              Dokumenten-Management-System
+            </Typography>
+          </Box>
+          
+          <CardContent sx={{ p: 4 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+            >
+              <Avatar sx={{ m: 1, bgcolor: 'primary.main', width: 56, height: 56 }}>
+                <LockOutlinedIcon fontSize="large" />
+              </Avatar>
+              
+              <Typography component="h1" variant="h5" sx={{ mt: 2, mb: 3 }}>
+                Anmelden
+              </Typography>
+              
+              {error && (
+                <Alert 
+                  severity="error" 
+                  sx={{ 
+                    width: '100%', 
+                    mb: 3,
+                    '& .MuiAlert-message': {
+                      width: '100%'  // Fix for possible umlaut rendering issues
+                    }
+                  }}
+                >
+                  {error}
+                </Alert>
+              )}
+              
+              <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  id="username"
+                  label="Benutzername"
+                  name="username"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoFocus
+                  disabled={loading}
+                  sx={{ mb: 3 }}
+                  inputProps={{
+                    style: { fontSize: '1rem' }
+                  }}
+                />
+                
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  name="password"
+                  label="Passwort"
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  sx={{ mb: 3 }}
+                  InputProps={{
+                    style: { fontSize: '1rem' },
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={toggleShowPassword}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
+                
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  sx={{ 
+                    mt: 2, 
+                    mb: 3,
+                    py: 1.5,
+                    fontSize: '1rem',
+                    fontWeight: 500
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    'Anmelden'
+                  )}
+                </Button>
+              </Box>
+            </Box>
+            
+            <Divider sx={{ my: 2 }} />
+            
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Standard-Anmeldedaten: admin / admin
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+        
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            © {new Date().getFullYear()} DMS System
+          </Typography>
         </Box>
-      </Box>
-      <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 8 }}>
-        Standard Login: admin / admin
-      </Typography>
-    </Container>
+      </Container>
+    </Box>
   );
 }
 
