@@ -1,12 +1,127 @@
+/* Global styles with proper UTF-8 encoding support */
+@charset "UTF-8";
+
 body {
   margin: 0;
   font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f5f5f5;
+  background-color: #f5f7fa;
+}
+
+/* Support for proper rendering of German umlauts */
+* {
+  text-rendering: optimizeLegibility;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Common spacing utilities */
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 1rem; }
+.mt-4 { margin-top: 1.5rem; }
+.mt-5 { margin-top: 3rem; }
+
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 1rem; }
+.mb-4 { margin-bottom: 1.5rem; }
+.mb-5 { margin-bottom: 3rem; }
+
+/* Custom scrollbar for better look and feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a0a0a0;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #888888;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Loading spinner animation */
+.loader {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top: 4px solid #0063a6;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* File type colors for document icons */
+.file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  margin-right: 12px;
+}
+
+.file-icon.pdf {
+  background-color: rgba(244, 67, 54, 0.1);
+  color: #F44336;
+}
+
+.file-icon.image {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: #4CAF50;
+}
+
+.file-icon.word {
+  background-color: rgba(33, 150, 243, 0.1);
+  color: #2196F3;
+}
+
+.file-icon.excel {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: #4CAF50;
+}
+
+.file-icon.default {
+  background-color: rgba(158, 158, 158, 0.1);
+  color: #9E9E9E;
+}
+
+/* German language date picker formatting */
+.MuiPickersDay-root {
+  font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif !important;
+}
+
+/* Fix for umlauts in Material UI components */
+.MuiTypography-root,
+.MuiInputBase-root,
+.MuiButton-root {
+  font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif !important;
 }
