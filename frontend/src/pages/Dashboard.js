@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AppBar,
@@ -24,10 +24,6 @@ import {
   IconButton,
   Menu,
   Tooltip,
-  Card,
-  CardHeader,
-  Badge,
-  Drawer,
   Chip,
   Dialog,
   DialogTitle,
@@ -39,7 +35,6 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import DeleteIcon from '@mui/icons-material/Delete';
-import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useAuth } from '../context/AuthContext';
@@ -61,8 +56,8 @@ function Dashboard() {
   const { logout, currentUser } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch documents and mailboxes
-  const fetchData = async () => {
+  // Fetch documents and mailboxes - wrapped with useCallback
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const mailboxQuery = selectedMailbox ? `?mailboxId=${selectedMailbox}` : '';
@@ -78,11 +73,11 @@ function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMailbox]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedMailbox]);
+  }, [fetchData]);
 
   const handleLogout = () => {
     logout();
@@ -297,7 +292,13 @@ function Dashboard() {
                         </ListItemIcon>
                         <ListItemText 
                           primary={
-                            <Typography variant="subtitle1" component="div">
+                            <Typography 
+                              variant="subtitle1" 
+                              component="div" 
+                              noWrap 
+                              title={doc?.name || 'Unbenanntes Dokument'}
+                              sx={{ maxWidth: { xs: '180px', sm: '280px', md: '400px' } }}
+                            >
                               {doc?.name || 'Unbenanntes Dokument'}
                             </Typography>
                           }
@@ -325,6 +326,7 @@ function Dashboard() {
                                     variant="body2"
                                     color="primary"
                                     component="span"
+                                    sx={{ fontFamily: '"Roboto", "Segoe UI", "Helvetica Neue", sans-serif' }}
                                   >
                                     {typeof doc.mailbox === 'object' ? doc.mailbox.name : getMailboxName(doc.mailbox)}
                                   </Typography>
