@@ -17,6 +17,11 @@ const DocumentSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  mailbox: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Mailbox',
+    default: null
+  },
   uploadedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
