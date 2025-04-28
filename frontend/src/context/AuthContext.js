@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -74,8 +74,8 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
-  // Load user from token
-  const loadUser = async () => {
+  // Load user from token - wrapped with useCallback
+  const loadUser = useCallback(async () => {
     const token = localStorage.getItem('token');
     
     if (token && typeof token === 'string') {
@@ -91,12 +91,12 @@ export const AuthProvider = ({ children }) => {
     }
     
     setLoading(false);
-  };
+  }, []);
 
   // On mount, check for token
   useEffect(() => {
     loadUser();
-  }, []);
+  }, [loadUser]);
 
   const value = {
     currentUser,
