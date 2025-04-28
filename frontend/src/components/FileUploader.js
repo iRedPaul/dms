@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Box,
@@ -6,16 +6,29 @@ import {
   Button,
   CircularProgress,
   Alert,
-  LinearProgress
+  LinearProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid,
+  Paper
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import axios from 'axios';
 
-function FileUploader({ onUploadSuccess }) {
+function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
+  const [mailboxId, setMailboxId] = useState(selectedMailbox);
+
+  // Update mailbox when prop changes
+  useEffect(() => {
+    setMailboxId(selectedMailbox);
+  }, [selectedMailbox]);
 
   const onDrop = useCallback(acceptedFiles => {
     if (acceptedFiles.length > 0) {
@@ -43,6 +56,11 @@ function FileUploader({ onUploadSuccess }) {
 
     const formData = new FormData();
     formData.append('file', file);
+    
+    // Add mailbox ID if selected
+    if (mailboxId) {
+      formData.append('mailboxId', mailboxId);
+    }
 
     try {
       await axios.post('/api/documents/upload', formData, {
@@ -61,10 +79,14 @@ function FileUploader({ onUploadSuccess }) {
       if (onUploadSuccess) onUploadSuccess();
     } catch (err) {
       console.error('Upload error:', err);
-      setError('Fehler beim Hochladen der Datei');
+      setError(err.response?.data?.msg || 'Fehler beim Hochladen der Datei');
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleMailboxChange = (event) => {
+    setMailboxId(event.target.value);
   };
 
   return (
@@ -79,19 +101,24 @@ function FileUploader({ onUploadSuccess }) {
         {...getRootProps()}
         sx={{
           border: '2px dashed',
-          borderColor: isDragActive ? 'primary.main' : 'grey.400',
+          borderColor: isDragActive ? 'primary.main' : 'grey.300',
           borderRadius: 2,
           p: 3,
           textAlign: 'center',
           backgroundColor: isDragActive ? 'action.hover' : 'background.paper',
           cursor: 'pointer',
-          mb: 2
+          mb: 2,
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': {
+            borderColor: 'primary.main',
+            backgroundColor: 'rgba(0, 0, 0, 0.01)'
+          }
         }}
       >
         <input {...getInputProps()} />
         <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
         <Typography variant="h6" gutterBottom>
-          Ziehen Sie Dokumente hierher oder klicken Sie zum Auswählen
+          Dateien hierher ziehen oder klicken
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Unterstützte Formate: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX, TXT (max. 50MB)
@@ -99,11 +126,48 @@ function FileUploader({ onUploadSuccess }) {
       </Box>
       
       {file && (
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="body1">
-            <strong>Ausgewählte Datei:</strong> {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-          </Typography>
-        </Box>
+        <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <InsertDriveFileIcon 
+              sx={{ 
+                fontSize: 40, 
+                color: file.type.includes('pdf') ? '#F44336' : 
+                       file.type.includes('image') ? '#4CAF50' : 
+                       file.type.includes('word') ? '#2196F3' : 
+                       'primary.main',
+                mr: 2 
+              }} 
+            />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="subtitle1" noWrap>
+                {file.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {(file.size / 1024 / 1024).toFixed(2)} MB
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      )}
+      
+      {mailboxes.length > 0 && (
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <InputLabel id="mailbox-upload-label">Postkorb auswählen</InputLabel>
+          <Select
+            labelId="mailbox-upload-label"
+            id="mailbox-upload"
+            value={mailboxId}
+            label="Postkorb auswählen"
+            onChange={handleMailboxChange}
+            disabled={uploading}
+          >
+            {mailboxes.map((mailbox) => (
+              <MenuItem key={mailbox._id} value={mailbox._id}>
+                {mailbox.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       )}
       
       {uploading && (
@@ -122,6 +186,7 @@ function FileUploader({ onUploadSuccess }) {
         disabled={!file || uploading}
         fullWidth
         startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
+        sx={{ py: 1.2 }}
       >
         {uploading ? 'Wird hochgeladen...' : 'Hochladen'}
       </Button>
