@@ -48,10 +48,16 @@ import SortIcon from '@mui/icons-material/Sort';
 import MailboxIcon from '@mui/icons-material/Inbox';
 import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import { Document, Page, pdfjs } from 'react-pdf';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import FileUploader from '../components/FileUploader';
 import { formatDate, formatFileSize } from '../utils/helpers';
+
+// Set worker path for PDF.js
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 // Constants for layout
 const SIDEBAR_WIDTH = 320;
@@ -70,6 +76,10 @@ function Dashboard() {
   const [currentDocument, setCurrentDocument] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+  const [numPages, setNumPages] = useState(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pdfLoading, setPdfLoading] = useState(true);
+  const [pdfError, setPdfError] = useState(false);
   
   const { logout, currentUser } = useAuth();
   const navigate = useNavigate();
@@ -108,6 +118,10 @@ function Dashboard() {
 
   const handleDocumentClick = (document) => {
     setCurrentDocument(document);
+    setPageNumber(1); // Reset page number when document changes
+    setNumPages(null); // Reset page count when document changes
+    setPdfLoading(true); // Reset PDF loading state
+    setPdfError(false); // Reset PDF error state
   };
 
   const handleDocumentDetails = (id) => {
@@ -176,6 +190,20 @@ function Dashboard() {
     }
   };
 
+  // PDF functionality
+  const onDocumentLoadSuccess = ({ numPages }) => {
+    setNumPages(numPages);
+    setPdfLoading(false);
+  };
+
+  const goToPrevPage = () => {
+    setPageNumber(prev => Math.max(prev - 1, 1));
+  };
+
+  const goToNextPage = () => {
+    setPageNumber(prev => Math.min(prev + 1, numPages || 1));
+  };
+
   // Filter documents based on search query
   const filteredDocuments = documents.filter(doc => 
     doc.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -230,15 +258,117 @@ function Dashboard() {
       );
     }
 
-    // Use correct pathname for API URL
+    // Verwende korrekte Pfadangabe für API URL
     const API_URL = process.env.NODE_ENV === 'production' 
       ? (process.env.REACT_APP_API_URL || 'http://localhost:4000')
       : `${window.location.protocol}//${window.location.hostname}:4000`;
 
     const fileUrl = currentDocument.path ? `${API_URL}/${currentDocument.path}` : '';
     
-    // Check if document is an image
-    if (currentDocument.type && currentDocument.type.startsWith('image/') && fileUrl) {
+    // PDF Dokumente direkt anzeigen
+    if (currentDocument.type === 'application/pdf' && fileUrl) {
+      return (
+        <Box sx={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center', 
+          p: 2 
+        }}>
+          <Box sx={{ 
+            width: '100%', 
+            flexGrow: 1,
+            display: 'flex', 
+            justifyContent: 'center',
+            alignItems: 'center',
+            overflow: 'auto',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            borderRadius: 2,
+            bgcolor: 'white',
+            position: 'relative'
+          }}>
+            <Document
+              file={fileUrl}
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={(error) => {
+                console.error('Error loading PDF:', error);
+                setPdfError(true);
+                setPdfLoading(false);
+              }}
+              loading={
+                <Box sx={{ p: 3, textAlign: 'center' }}>
+                  <CircularProgress size={40} sx={{ mb: 2 }} />
+                  <Typography>PDF wird geladen...</Typography>
+                </Box>
+              }
+              error={
+                <Box sx={{ p: 3, textAlign: 'center', color: 'error.main' }}>
+                  <Typography>Fehler beim Laden des PDFs.</Typography>
+                  <Button 
+                    variant="outlined" 
+                    size="small" 
+                    sx={{ mt: 2 }}
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Herunterladen
+                  </Button>
+                </Box>
+              }
+            >
+              <Page 
+                pageNumber={pageNumber} 
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+                width={Math.min(800, window.innerWidth - 300)}
+              />
+            </Document>
+          </Box>
+          
+          {numPages && (
+            <Box 
+              sx={{ 
+                mt: 2, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 2,
+                bgcolor: 'background.paper',
+                p: 1.5, 
+                borderRadius: 2,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}
+            >
+              <Button 
+                variant="outlined" 
+                disabled={pageNumber <= 1}
+                onClick={goToPrevPage}
+                startIcon={<NavigateBeforeIcon />}
+                size="small"
+                sx={{ borderRadius: 2 }}
+              >
+                Vorherige
+              </Button>
+              <Typography sx={{ mx: 2, fontWeight: 500 }}>
+                Seite {pageNumber} von {numPages}
+              </Typography>
+              <Button 
+                variant="outlined" 
+                disabled={pageNumber >= numPages}
+                onClick={goToNextPage}
+                endIcon={<NavigateNextIcon />}
+                size="small"
+                sx={{ borderRadius: 2 }}
+              >
+                Nächste
+              </Button>
+            </Box>
+          )}
+        </Box>
+      );
+    } 
+    // Bilder anzeigen
+    else if (currentDocument.type && currentDocument.type.startsWith('image/') && fileUrl) {
       return (
         <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
           <img 
@@ -249,7 +379,7 @@ function Dashboard() {
         </Box>
       );
     } 
-    // For PDF or other non-image files, show a preview card
+    // Für andere Dateitypen, zeige eine Vorschau-Karte
     else {
       return (
         <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
