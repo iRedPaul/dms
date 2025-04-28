@@ -22,8 +22,6 @@ import {
   CircularProgress,
   Grid,
   Chip,
-  Divider,
-  InputAdornment,
   Tooltip,
   Autocomplete
 } from '@mui/material';
@@ -263,7 +261,26 @@ function UserManagement({ onSuccess, onError }) {
       ) : users.length === 0 ? (
         <Typography variant="body1">Keine Benutzer gefunden</Typography>
       ) : (
-        <TableContainer component={Paper} elevation={0} variant="outlined">
+        <TableContainer 
+          component={Paper} 
+          elevation={1} 
+          sx={{ 
+            borderRadius: 1,
+            // Fix for consistent table borders
+            '& .MuiTableCell-root': {
+              borderBottom: '1px solid rgba(224, 224, 224, 1)',
+              padding: '16px',
+              fontFamily: '"Roboto", "Segoe UI", "Helvetica Neue", sans-serif'
+            },
+            '& .MuiTableRow-root:last-child .MuiTableCell-body': {
+              borderBottom: 'none'
+            },
+            '& .MuiTableHead-root .MuiTableCell-root': {
+              backgroundColor: 'rgba(0, 0, 0, 0.02)',
+              fontWeight: 'bold'
+            }
+          }}
+        >
           <Table>
             <TableHead>
               <TableRow>
@@ -285,7 +302,11 @@ function UserManagement({ onSuccess, onError }) {
                       <Chip size="small" variant="outlined" label="Benutzer" />
                     )}
                   </TableCell>
-                  <TableCell>{getMailboxNames(user.mailboxAccess)}</TableCell>
+                  <TableCell>
+                    <Typography noWrap title={getMailboxNames(user.mailboxAccess)} sx={{ maxWidth: { xs: '120px', sm: '200px', md: '300px' } }}>
+                      {getMailboxNames(user.mailboxAccess)}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     {new Date(user.createdAt).toLocaleDateString('de-DE')}
                   </TableCell>
@@ -344,6 +365,7 @@ function UserManagement({ onSuccess, onError }) {
                   onChange={handleChange}
                   fullWidth
                   required
+                  inputProps={{ maxLength: 30 }}
                 />
               </Grid>
               <Grid item xs={12}>
