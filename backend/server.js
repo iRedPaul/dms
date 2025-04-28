@@ -20,25 +20,43 @@ const adminMiddleware = require('./middleware/admin');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Verbesserte CORS-Einstellungen für Cloudflare Zero Trust
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || 'https://dms.home-lan.cc',
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ charset: 'utf-8' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 app.use(fileUpload({
   createParentPath: true,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max file size
-  debug: process.env.NODE_ENV !== 'production',
-  useTempFiles: true, // Verwenden Sie temporäre Dateien für große Uploads
-  tempFileDir: '/tmp/', // Temporäres Verzeichnis
-  safeFileNames: false, // Wir behalten die Originalzeichenfolge bei und dekodieren sie manuell
-  preserveExtension: true // Behalten Sie die Dateierweiterung bei
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB max file size
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Add proper UTF-8 encoding
 app.use((req, res, next) => {
   res.header('Content-Type', 'application/json; charset=utf-8');
+  next();
+});
+
+// Middleware für Cloudflare-Headers
+app.use((req, res, next) => {
+  // Wenn ein X-Forwarded-Proto Header vorhanden ist, nutze ihn für die URL-Generierung
+  if (req.headers['x-forwarded-proto'] === 'https') {
+    req.protocol = 'https';
+  }
+  // Vertraue dem X-Forwarded-For Header für die Client-IP
+  if (req.headers['x-forwarded-for']) {
+    const forwardedIps = req.headers['x-forwarded-for'].split(',');
+    req.realIp = forwardedIps[0].trim();
+  }
   next();
 });
 
@@ -153,8 +171,6 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
     }
 
     const file = req.files.file;
-    // Holen Sie sich den originalen Dateinamen - wir nehmen an, dass er korrekt codiert ist
-    const fileName = file.name;
     const { mailboxId } = req.body;
     
     // Validate mailbox exists and user has access to it
@@ -174,16 +190,15 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
       }
     }
 
-    // Verwenden Sie eine eindeutige Dateikennung für die Speicherung
-    const uniqueFileName = `${Date.now()}_${fileName}`;
-    const filePath = `uploads/${uniqueFileName}`;
+    const fileName = `${Date.now()}_${file.name}`;
+    const filePath = `uploads/${fileName}`;
     
     // Move file to uploads directory
     await file.mv(path.join(__dirname, filePath));
     
-    // Save document info to database with the correct name
+    // Save document info to database
     const newDocument = new Document({
-      name: fileName, // Der originale Dateiname
+      name: file.name,
       path: filePath,
       type: file.mimetype,
       size: file.size,
@@ -300,6 +315,11 @@ app.delete('/api/documents/:id', authMiddleware, async (req, res) => {
     console.error(err.message);
     res.status(500).send('Server error');
   }
+});
+
+// Gesundheitsprüfung für Cloudflare
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'DMS service is running' });
 });
 
 // Initialize admin user and start server
