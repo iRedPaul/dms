@@ -14,7 +14,6 @@ import {
   Skeleton,
   Breadcrumbs,
   Link,
-  Chip,
   Tooltip,
   Divider,
   Grid,
@@ -326,7 +325,7 @@ function DocumentViewer() {
                     <Typography variant="body2" color="text.secondary">
                       Dateiname
                     </Typography>
-                    <Typography variant="body1" gutterBottom>
+                    <Typography variant="body1" gutterBottom noWrap title={document.name}>
                       {document.name}
                     </Typography>
                   </Box>
