@@ -9,9 +9,9 @@ RUN npm install --legacy-peer-deps
 
 COPY . .
 
-# Default environment variables for development
-ENV REACT_APP_API_URL=http://backend:4000
-ENV NODE_ENV=development
+# Updated environment variables for Cloudflare Zero Trust
+ENV REACT_APP_API_URL=https://dms.home-lan.cc/api
+ENV NODE_ENV=production
 
 # Start the development server
 CMD ["npm", "start"]
