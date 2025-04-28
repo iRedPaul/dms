@@ -1,4 +1,4 @@
-FROM node:16-alpine as build
+FROM node:16-alpine
 
 WORKDIR /app
 
@@ -9,22 +9,9 @@ RUN npm install --legacy-peer-deps
 
 COPY . .
 
-# Set environment variables for production build
+# Default environment variables for development
 ENV REACT_APP_API_URL=http://backend:4000
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 
-# Build with the fixed environment
-RUN npm run build
-
-# Production stage
-FROM nginx:alpine
-
-# Copy built assets from builder stage
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Add nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+# Start the development server
+CMD ["npm", "start"]
