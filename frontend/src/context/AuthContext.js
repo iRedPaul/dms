@@ -13,45 +13,31 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  // Updated API URL handling to ensure string format
+  // Aktualisierte API URL Handhabung für Cloudflare Integration
   const API_URL = process.env.NODE_ENV === 'production' 
-    ? (process.env.REACT_APP_API_URL || 'http://localhost:4000')
+    ? (process.env.REACT_APP_API_URL || 'https://dms.home-lan.cc/api')
     : `${window.location.protocol}//${window.location.hostname}:4000`;
 
   // Setup axios defaults and interceptors
   useEffect(() => {
-    // Set baseURL
+    // Set baseURL - für Cloudflare Zero Trust
     if (typeof API_URL === 'string') {
-      axios.defaults.baseURL = API_URL;
-      console.log('API URL set to:', API_URL);
+      // Wenn wir die Basis-URL auf /api setzen, müssen wir "/api" aus allen Anfragen entfernen
+      // da es bereits in der Basis-URL enthalten ist
+      const baseURL = API_URL.endsWith('/api') 
+        ? API_URL.substring(0, API_URL.length - 4) 
+        : API_URL;
+      axios.defaults.baseURL = baseURL;
+      console.log('API URL set to:', baseURL);
     } else {
-      // Fallback to a safe default if API_URL is somehow not a string
-      axios.defaults.baseURL = 'http://localhost:4000';
-      console.log('API URL defaulted to: http://localhost:4000');
+      // Fallback auf sichere URL mit Domain
+      axios.defaults.baseURL = 'https://dms.home-lan.cc';
+      console.log('API URL defaulted to: https://dms.home-lan.cc');
     }
 
-    // Globales Headers-Setup für alle Anfragen - WICHTIG: Keine 'unsafe' Header verwenden
-    axios.defaults.headers.common['Content-Type'] = 'application/json; charset=utf-8';
-
-    // Setup response interceptor for global error handling and response processing
+    // Setup response interceptor for global error handling
     const interceptor = axios.interceptors.response.use(
-      response => {
-        // Stellen Sie sicher, dass Texte korrekt als UTF-8 interpretiert werden
-        if (response.data && typeof response.data === 'object') {
-          try {
-            // Durchlaufe alle String-Eigenschaften und normalisiere die Unicode-Darstellung
-            Object.keys(response.data).forEach(key => {
-              if (typeof response.data[key] === 'string') {
-                // Normalisiere Unicode-Strings (kann bei Umlauten helfen)
-                response.data[key] = response.data[key].normalize('NFC');
-              }
-            });
-          } catch (e) {
-            console.error('Error normalizing response data:', e);
-          }
-        }
-        return response;
-      },
+      response => response,
       error => {
         // Handle session expiration
         if (error.response && error.response.status === 401) {
