@@ -19,7 +19,16 @@ import {
   TextField,
   CircularProgress,
   Tooltip,
-  Grid
+  Grid,
+  Chip,
+  Avatar,
+  InputAdornment,
+  Stack,
+  Divider,
+  Card,
+  CardContent,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -27,6 +36,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import FolderIcon from '@mui/icons-material/Folder';
+import PersonIcon from '@mui/icons-material/Person';
+import DescriptionIcon from '@mui/icons-material/Description';
+import SearchIcon from '@mui/icons-material/Search';
 import axios from 'axios';
 
 function MailboxManagement({ onSuccess, onError }) {
@@ -36,10 +48,14 @@ function MailboxManagement({ onSuccess, onError }) {
   const [openDialog, setOpenDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [editingMailbox, setEditingMailbox] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     description: ''
   });
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Fetch mailboxes when component mounts
   useEffect(() => {
@@ -73,6 +89,11 @@ function MailboxManagement({ onSuccess, onError }) {
   // Handle adding/editing mailbox form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!formData.name || formData.name.trim() === '') {
+      onError('Der Name des Postkorbs ist erforderlich');
+      return;
+    }
     
     try {
       if (editingMailbox) {
@@ -160,20 +181,76 @@ function MailboxManagement({ onSuccess, onError }) {
     ).length;
   };
 
+  // Get count of users with access to this mailbox
+  const getUsers = (mailboxId) => {
+    return users.filter(user => 
+      user.mailboxAccess && 
+      user.mailboxAccess.some(mb => 
+        (typeof mb === 'string' && mb === mailboxId) || 
+        (mb._id && mb._id === mailboxId)
+      )
+    );
+  };
+
+  // Filter mailboxes based on search query
+  const filteredMailboxes = mailboxes.filter(mailbox =>
+    mailbox.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (mailbox.description && mailbox.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  // Get a more colorful but predictable color for a mailbox
+  const getMailboxColor = (name) => {
+    const colors = ['#0063a6', '#4caf50', '#ff9800', '#e91e63', '#9c27b0', '#009688', '#673ab7'];
+    const hashCode = name.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
+    return colors[hashCode % colors.length];
+  };
+
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5" component="h2">
-          Postkorbverwaltung
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={handleAddMailbox}
-        >
-          Neuer Postkorb
-        </Button>
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2} alignItems="center" justifyContent="space-between">
+          <Grid item xs={12} sm={6}>
+            <Typography variant="h5" component="h2" fontWeight={600}>
+              Postkorbverwaltung
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Postkörbe erstellen, bearbeiten und verwalten
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleAddMailbox}
+              sx={{ 
+                borderRadius: 2,
+                px: 2
+              }}
+            >
+              Neuer Postkorb
+            </Button>
+          </Grid>
+        </Grid>
+      </Box>
+      
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Postkörbe suchen..."
+          variant="outlined"
+          fullWidth
+          size="small"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ maxWidth: 400 }}
+        />
       </Box>
       
       {loading ? (
@@ -181,13 +258,27 @@ function MailboxManagement({ onSuccess, onError }) {
           <CircularProgress />
         </Box>
       ) : mailboxes.length === 0 ? (
-        <Typography variant="body1">Keine Postkörbe gefunden</Typography>
+        <Card variant="outlined" sx={{ borderRadius: 2, p: 3, textAlign: 'center' }}>
+          <CardContent>
+            <Typography variant="body1">Keine Postkörbe gefunden</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={handleAddMailbox}
+              sx={{ mt: 2 }}
+            >
+              Ersten Postkorb erstellen
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <TableContainer 
           component={Paper} 
-          elevation={1} 
+          elevation={0} 
+          variant="outlined"
           sx={{ 
-            borderRadius: 1,
+            borderRadius: 2,
+            overflow: 'hidden',
             // Fix for consistent table borders
             '& .MuiTableCell-root': {
               borderBottom: '1px solid rgba(224, 224, 224, 1)',
@@ -206,49 +297,88 @@ function MailboxManagement({ onSuccess, onError }) {
             <TableHead>
               <TableRow>
                 <TableCell>Name</TableCell>
-                <TableCell>Beschreibung</TableCell>
-                <TableCell>Benutzer mit Zugriff</TableCell>
-                <TableCell>Erstellt am</TableCell>
+                {!isMobile && <TableCell>Beschreibung</TableCell>}
+                <TableCell>Benutzer</TableCell>
+                {!isMobile && <TableCell>Erstellt am</TableCell>}
                 <TableCell align="right">Aktionen</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {mailboxes.map((mailbox) => (
+              {filteredMailboxes.map((mailbox) => (
                 <TableRow key={mailbox._id}>
                   <TableCell sx={{ display: 'flex', alignItems: 'center' }}>
-                    <FolderIcon color="primary" sx={{ mr: 1, opacity: 0.7 }} />
-                    {mailbox.name}
+                    <Avatar
+                      sx={{ 
+                        bgcolor: `${getMailboxColor(mailbox.name)}20`,
+                        color: getMailboxColor(mailbox.name),
+                        mr: 2
+                      }}
+                    >
+                      <FolderIcon />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="body1" fontWeight={500}>
+                        {mailbox.name}
+                      </Typography>
+                      {isMobile && mailbox.description && (
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 200, display: 'block' }}>
+                          {mailbox.description}
+                        </Typography>
+                      )}
+                    </Box>
                   </TableCell>
+                  {!isMobile && (
+                    <TableCell>
+                      <Typography noWrap sx={{ maxWidth: 250 }}>
+                        {mailbox.description || '-'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
-                    {/* Add text truncation for long descriptions */}
-                    <Typography noWrap sx={{ maxWidth: 250 }}>
-                      {mailbox.description || '-'}
-                    </Typography>
+                    <Tooltip 
+                      title={
+                        getUserCount(mailbox._id) > 0
+                          ? getUsers(mailbox._id).map(user => user.username).join(', ')
+                          : 'Keine Benutzer mit Zugriff'
+                      }
+                    >
+                      <Chip
+                        icon={<PersonIcon />}
+                        label={`${getUserCount(mailbox._id)} Benutzer`}
+                        size="small"
+                        color={getUserCount(mailbox._id) > 0 ? 'primary' : 'default'}
+                        variant={getUserCount(mailbox._id) > 0 ? 'filled' : 'outlined'}
+                        sx={{ borderRadius: 2 }}
+                      />
+                    </Tooltip>
                   </TableCell>
-                  <TableCell>{getUserCount(mailbox._id)}</TableCell>
-                  <TableCell>
-                    {new Date(mailbox.createdAt).toLocaleDateString('de-DE')}
-                  </TableCell>
+                  {!isMobile && (
+                    <TableCell>
+                      {new Date(mailbox.createdAt).toLocaleDateString('de-DE')}
+                    </TableCell>
+                  )}
                   <TableCell align="right">
-                    <Tooltip title="Bearbeiten">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditMailbox(mailbox)}
-                        color="primary"
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Löschen">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteDialog(mailbox)}
-                        color="error"
-                        sx={{ ml: 1 }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <Tooltip title="Bearbeiten">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditMailbox(mailbox)}
+                          color="primary"
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Löschen">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteDialog(mailbox)}
+                          color="error"
+                          sx={{ ml: 1 }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}
@@ -258,13 +388,22 @@ function MailboxManagement({ onSuccess, onError }) {
       )}
       
       {/* Add/Edit Mailbox Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openDialog} 
+        onClose={() => setOpenDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
+      >
         <form onSubmit={handleSubmit}>
           <DialogTitle>
             {editingMailbox ? 'Postkorb bearbeiten' : 'Neuen Postkorb erstellen'}
           </DialogTitle>
+          <Divider />
           <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
               <Grid item xs={12}>
                 <TextField
                   name="name"
@@ -273,7 +412,9 @@ function MailboxManagement({ onSuccess, onError }) {
                   onChange={handleChange}
                   fullWidth
                   required
+                  autoFocus
                   inputProps={{ maxLength: 50 }} // Limit name length
+                  helperText="Name des Postkorbs (z.B. 'Eingangsrechnungen', 'Verträge')"
                 />
               </Grid>
               <Grid item xs={12}>
@@ -286,17 +427,21 @@ function MailboxManagement({ onSuccess, onError }) {
                   multiline
                   rows={3}
                   inputProps={{ maxLength: 500 }} // Limit description length
+                  helperText="Optionale Beschreibung des Verwendungszwecks"
                 />
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
             <Button 
               onClick={() => {
                 setOpenDialog(false);
                 resetForm();
               }}
               startIcon={<CancelIcon />}
+              variant="outlined"
+              color="inherit"
+              sx={{ borderRadius: 2 }}
             >
               Abbrechen
             </Button>
@@ -305,6 +450,7 @@ function MailboxManagement({ onSuccess, onError }) {
               variant="contained"
               color="primary"
               startIcon={<SaveIcon />}
+              sx={{ borderRadius: 2 }}
             >
               Speichern
             </Button>
@@ -313,7 +459,13 @@ function MailboxManagement({ onSuccess, onError }) {
       </Dialog>
       
       {/* Delete Confirmation Dialog */}
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
+      <Dialog 
+        open={openDeleteDialog} 
+        onClose={() => setOpenDeleteDialog(false)}
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
+      >
         <DialogTitle>Postkorb löschen</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -321,10 +473,34 @@ function MailboxManagement({ onSuccess, onError }) {
             Diese Aktion kann nicht rückgängig gemacht werden und entfernt den Postkorb
             aus allen Benutzerzugriffen.
           </DialogContentText>
+          
+          {editingMailbox && getUserCount(editingMailbox._id) > 0 && (
+            <Alert 
+              severity="warning" 
+              sx={{ mt: 2 }}
+              icon={<PersonIcon />}
+            >
+              {getUserCount(editingMailbox._id)} Benutzer haben aktuell Zugriff auf diesen Postkorb.
+            </Alert>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDeleteDialog(false)}>Abbrechen</Button>
-          <Button onClick={handleDeleteMailbox} color="error">Löschen</Button>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button 
+            onClick={() => setOpenDeleteDialog(false)}
+            variant="outlined"
+            color="inherit"
+            sx={{ borderRadius: 2 }}
+          >
+            Abbrechen
+          </Button>
+          <Button 
+            onClick={handleDeleteMailbox} 
+            color="error"
+            variant="contained"
+            sx={{ borderRadius: 2 }}
+          >
+            Löschen
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
