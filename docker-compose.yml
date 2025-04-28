@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # MongoDB Datenbank
+  mongo:
+    image: mongo:latest
+    container_name: dms-db
+    restart: always
+    volumes:
+      - dms_mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    networks:
+      - dms-network
+
+  # Backend API
+  backend:
+    image: node:16-alpine
+    container_name: dms-api
+    restart: always
+    working_dir: /app
+    volumes:
+      - /opt/dms/backend:/app
+      - dms_uploads:/app/uploads
+    ports:
+      - "4000:4000"
+    environment:
+      - MONGO_URI=mongodb://root:example@mongo:27017/dms?authSource=admin
+      - JWT_SECRET=geheimesToken123
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=admin
+      - PORT=4000
+    command: sh -c "npm install && npm start"
+    depends_on:
+      - mongo
+    networks:
+      - dms-network
+
+  # Frontend Build (temporärer Container für den Build-Prozess)
+  frontend-build:
+    image: node:16-alpine
+    container_name: dms-web-builder
+    working_dir: /app
+    volumes:
+      - /opt/dms/frontend:/app
+    command: >
+      sh -c "
+        echo 'Installiere Dependencies...' &&
+        npm install --legacy-peer-deps &&
+        echo 'Erstelle optimierten Production Build...' &&
+        REACT_APP_API_URL=http://backend:4000 npm run build &&
+        echo 'Build abgeschlossen!'
+      "
+    networks:
+      - dms-network
+
+  # Frontend Web Server
+  frontend:
+    image: nginx:alpine
+    container_name: dms-web
+    restart: always
+    volumes:
+      - /opt/dms/frontend/build:/usr/share/nginx/html
+      - /opt/dms/frontend/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend-build
+    networks:
+      - dms-network
+
+networks:
+  dms-network:
+    driver: bridge
+
+volumes:
+  dms_mongo_data:
+    external: false
+  dms_uploads:
+    external: false
