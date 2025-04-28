@@ -49,7 +49,7 @@ services:
         echo 'Installiere Dependencies...' &&
         npm install --legacy-peer-deps &&
         echo 'Erstelle optimierten Production Build...' &&
-        REACT_APP_API_URL=http://backend:4000 npm run build &&
+        REACT_APP_API_URL=http://10.17.1.12:4000 npm run build &&
         echo 'Build abgeschlossen!'
       "
     networks:
