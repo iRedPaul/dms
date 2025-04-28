@@ -27,7 +27,11 @@ function DocumentViewer() {
   
   const { id } = useParams();
   const navigate = useNavigate();
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  
+  // Dynamic API URL based on environment
+  const API_URL = process.env.NODE_ENV === 'production' 
+    ? (process.env.REACT_APP_API_URL || 'http://localhost:4000')
+    : `${window.location.protocol}//${window.location.hostname}:4000`;
 
   useEffect(() => {
     const fetchDocument = async () => {
@@ -67,6 +71,7 @@ function DocumentViewer() {
     if (!document) return null;
 
     const fileUrl = `${API_URL}/${document.path}`;
+    console.log('Loading document from:', fileUrl);
 
     // Check if document is PDF
     if (document.type === 'application/pdf') {
