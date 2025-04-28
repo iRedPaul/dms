@@ -9,8 +9,6 @@ import {
   Container,
   Alert,
   CircularProgress,
-  Paper,
-  Grid,
   InputAdornment,
   IconButton,
   Card,
@@ -124,7 +122,8 @@ function Login() {
                     width: '100%', 
                     mb: 3,
                     '& .MuiAlert-message': {
-                      width: '100%'  // Fix for possible umlaut rendering issues
+                      width: '100%',
+                      fontFamily: '"Roboto", "Segoe UI", "Helvetica Neue", sans-serif'
                     }
                   }}
                 >
