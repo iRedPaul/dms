@@ -30,9 +30,29 @@ export const AuthProvider = ({ children }) => {
       console.log('API URL defaulted to: http://localhost:4000');
     }
 
-    // Setup response interceptor for global error handling
+    // Globales Headers-Setup für alle Anfragen
+    axios.defaults.headers.common['Accept-Charset'] = 'utf-8';
+    axios.defaults.headers.common['Content-Type'] = 'application/json; charset=utf-8';
+
+    // Setup response interceptor for global error handling and response processing
     const interceptor = axios.interceptors.response.use(
-      response => response,
+      response => {
+        // Stellen Sie sicher, dass Texte korrekt als UTF-8 interpretiert werden
+        if (response.data && typeof response.data === 'object') {
+          try {
+            // Durchlaufe alle String-Eigenschaften und normalisiere die Unicode-Darstellung
+            Object.keys(response.data).forEach(key => {
+              if (typeof response.data[key] === 'string') {
+                // Normalisiere Unicode-Strings (kann bei Umlauten helfen)
+                response.data[key] = response.data[key].normalize('NFC');
+              }
+            });
+          } catch (e) {
+            console.error('Error normalizing response data:', e);
+          }
+        }
+        return response;
+      },
       error => {
         // Handle session expiration
         if (error.response && error.response.status === 401) {
