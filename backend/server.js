@@ -31,7 +31,7 @@ app.use(fileUpload({
   debug: process.env.NODE_ENV !== 'production',
   useTempFiles: true, // Verwenden Sie temporäre Dateien für große Uploads
   tempFileDir: '/tmp/', // Temporäres Verzeichnis
-  safeFileNames: true, // Entfernen Sie unerwünschte Zeichen aus Dateinamen
+  safeFileNames: false, // Wir behalten die Originalzeichenfolge bei und dekodieren sie manuell
   preserveExtension: true // Behalten Sie die Dateierweiterung bei
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -39,19 +39,13 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Add proper UTF-8 encoding
 app.use((req, res, next) => {
   res.header('Content-Type', 'application/json; charset=utf-8');
-  // Stellen Sie sicher, dass keine Inhaltstyp-Umwandlung stattfindet
-  res.header('Accept-Charset', 'utf-8');
-  // Fügen Sie CORS Header hinzu, um Codierungsprobleme bei Cross-Origin-Anfragen zu vermeiden
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-auth-token');
   next();
 });
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true,
-  charset: 'utf8' // Stellen Sie sicher, dass Mongoose UTF-8 verwendet
+  useUnifiedTopology: true
 })
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.log('MongoDB Connection Error:', err));
@@ -159,8 +153,8 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
     }
 
     const file = req.files.file;
-    // Decode filename from Buffer to ensure proper UTF-8 handling
-    const decodedFileName = Buffer.from(file.name, 'binary').toString('utf8');
+    // Holen Sie sich den originalen Dateinamen - wir nehmen an, dass er korrekt codiert ist
+    const fileName = file.name;
     const { mailboxId } = req.body;
     
     // Validate mailbox exists and user has access to it
@@ -180,16 +174,16 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
       }
     }
 
-    // Verwenden Sie den dekodierten Dateinamen für die Speicherung
-    const fileName = `${Date.now()}_${decodedFileName}`;
-    const filePath = `uploads/${fileName}`;
+    // Verwenden Sie eine eindeutige Dateikennung für die Speicherung
+    const uniqueFileName = `${Date.now()}_${fileName}`;
+    const filePath = `uploads/${uniqueFileName}`;
     
     // Move file to uploads directory
     await file.mv(path.join(__dirname, filePath));
     
-    // Save document info to database with the decoded name
+    // Save document info to database with the correct name
     const newDocument = new Document({
-      name: decodedFileName, // Verwenden Sie den dekodierten Namen
+      name: fileName, // Der originale Dateiname
       path: filePath,
       type: file.mimetype,
       size: file.size,
