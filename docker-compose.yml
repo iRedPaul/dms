@@ -1,82 +1,74 @@
-version: '3.8'
+version: '3'
 
 services:
-  # MongoDB Datenbank
-  mongo:
+  mongodb:
     image: mongo:latest
-    container_name: dms-db
-    restart: always
+    container_name: dms-mongodb
+    ports:
+      - "27017:27017"
     volumes:
-      - dms_mongo_data:/data/db
+      - mongodb-data:/data/db
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
+      - MONGO_INITDB_DATABASE=dms
+    restart: unless-stopped
     networks:
       - dms-network
 
-  # Backend API
   backend:
-    image: node:16-alpine
-    container_name: dms-api
-    restart: always
-    working_dir: /app
-    volumes:
-      - /opt/dms/backend:/app
-      - dms_uploads:/app/uploads
+    build: ./backend
+    container_name: dms-backend
     ports:
       - "4000:4000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - dms-uploads:/app/uploads
     environment:
-      - MONGO_URI=mongodb://root:example@mongo:27017/dms?authSource=admin
-      - JWT_SECRET=geheimesToken123
+      - MONGO_URI=mongodb://mongodb:27017/dms
+      - JWT_SECRET=your-jwt-secret-key-change-in-production
       - ADMIN_USER=admin
       - ADMIN_PASSWORD=admin
-      - PORT=4000
-    command: sh -c "npm install && npm start"
     depends_on:
-      - mongo
+      - mongodb
+    restart: unless-stopped
     networks:
       - dms-network
 
-  # Frontend Build (temporärer Container für den Build-Prozess)
-  frontend-build:
-    image: node:16-alpine
-    container_name: dms-web-builder
-    working_dir: /app
+  frontend-builder:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.builder
+    container_name: dms-frontend-builder
     volumes:
-      - /opt/dms/frontend:/app
-    command: >
-      sh -c "
-        echo 'Installiere Dependencies...' &&
-        npm install --legacy-peer-deps &&
-        echo 'Erstelle optimierten Production Build...' &&
-        REACT_APP_API_URL=http://10.17.1.12:4000 npm run build &&
-        echo 'Build abgeschlossen!'
-      "
+      - ./frontend:/app
+      - frontend-build:/app/build
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://backend:4000
+      - NODE_ENV=production
     networks:
       - dms-network
 
-  # Frontend Web Server
   frontend:
     image: nginx:alpine
-    container_name: dms-web
-    restart: always
-    volumes:
-      - /opt/dms/frontend/build:/usr/share/nginx/html
-      - /opt/dms/frontend/nginx.conf:/etc/nginx/conf.d/default.conf
+    container_name: dms-frontend
     ports:
       - "80:80"
+    volumes:
+      - frontend-build:/usr/share/nginx/html
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
+      - frontend-builder
       - backend
-      - frontend-build
+    restart: unless-stopped
     networks:
       - dms-network
+
+volumes:
+  mongodb-data:
+  dms-uploads:
+  frontend-build:
 
 networks:
   dms-network:
     driver: bridge
-
-volumes:
-  dms_mongo_data:
-    external: false
-  dms_uploads:
-    external: false
