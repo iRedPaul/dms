@@ -28,7 +28,7 @@ function DocumentViewer() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Dynamic API URL based on environment
+  // Dynamic API URL based on environment with type safety
   const API_URL = process.env.NODE_ENV === 'production' 
     ? (process.env.REACT_APP_API_URL || 'http://localhost:4000')
     : `${window.location.protocol}//${window.location.hostname}:4000`;
@@ -48,7 +48,9 @@ function DocumentViewer() {
       }
     };
 
-    fetchDocument();
+    if (id) {
+      fetchDocument();
+    }
   }, [id]);
 
   const onDocumentLoadSuccess = ({ numPages }) => {
@@ -70,11 +72,12 @@ function DocumentViewer() {
   const renderDocumentContent = () => {
     if (!document) return null;
 
-    const fileUrl = `${API_URL}/${document.path}`;
+    // Ensure we have a valid file URL string
+    const fileUrl = document.path ? `${API_URL}/${document.path}` : '';
     console.log('Loading document from:', fileUrl);
 
     // Check if document is PDF
-    if (document.type === 'application/pdf') {
+    if (document.type === 'application/pdf' && fileUrl) {
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Document
@@ -82,6 +85,10 @@ function DocumentViewer() {
             onLoadSuccess={onDocumentLoadSuccess}
             loading={<CircularProgress />}
             error={<Alert severity="error">Fehler beim Laden des PDFs</Alert>}
+            options={{
+              cMapUrl: 'https://unpkg.com/pdfjs-dist@2.12.313/cmaps/',
+              cMapPacked: true,
+            }}
           >
             <Page 
               pageNumber={pageNumber} 
@@ -114,13 +121,13 @@ function DocumentViewer() {
           )}
         </Box>
       );
-    } else if (document.type.startsWith('image/')) {
+    } else if (document.type && document.type.startsWith('image/') && fileUrl) {
       // If document is an image
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <img 
             src={fileUrl} 
-            alt={document.name} 
+            alt={document.name || 'Document'} 
             style={{ maxWidth: '100%', maxHeight: '70vh' }} 
           />
         </Box>
@@ -132,14 +139,16 @@ function DocumentViewer() {
           <Typography variant="body1" paragraph>
             Dieser Dateityp kann nicht direkt angezeigt werden.
           </Typography>
-          <Button 
-            variant="contained" 
-            href={fileUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-          >
-            Datei herunterladen
-          </Button>
+          {fileUrl && (
+            <Button 
+              variant="contained" 
+              href={fileUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+            >
+              Datei herunterladen
+            </Button>
+          )}
         </Box>
       );
     }
