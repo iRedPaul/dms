@@ -183,7 +183,25 @@ function MailboxManagement({ onSuccess, onError }) {
       ) : mailboxes.length === 0 ? (
         <Typography variant="body1">Keine Postkörbe gefunden</Typography>
       ) : (
-        <TableContainer component={Paper} elevation={0} variant="outlined">
+        <TableContainer 
+          component={Paper} 
+          elevation={1} 
+          sx={{ 
+            borderRadius: 1,
+            // Fix for consistent table borders
+            '& .MuiTableCell-root': {
+              borderBottom: '1px solid rgba(224, 224, 224, 1)',
+              padding: '16px'
+            },
+            '& .MuiTableRow-root:last-child .MuiTableCell-body': {
+              borderBottom: 'none'
+            },
+            '& .MuiTableHead-root .MuiTableCell-root': {
+              backgroundColor: 'rgba(0, 0, 0, 0.02)',
+              fontWeight: 'bold'
+            }
+          }}
+        >
           <Table>
             <TableHead>
               <TableRow>
@@ -201,7 +219,12 @@ function MailboxManagement({ onSuccess, onError }) {
                     <FolderIcon color="primary" sx={{ mr: 1, opacity: 0.7 }} />
                     {mailbox.name}
                   </TableCell>
-                  <TableCell>{mailbox.description || '-'}</TableCell>
+                  <TableCell>
+                    {/* Add text truncation for long descriptions */}
+                    <Typography noWrap sx={{ maxWidth: 250 }}>
+                      {mailbox.description || '-'}
+                    </Typography>
+                  </TableCell>
                   <TableCell>{getUserCount(mailbox._id)}</TableCell>
                   <TableCell>
                     {new Date(mailbox.createdAt).toLocaleDateString('de-DE')}
@@ -250,6 +273,7 @@ function MailboxManagement({ onSuccess, onError }) {
                   onChange={handleChange}
                   fullWidth
                   required
+                  inputProps={{ maxLength: 50 }} // Limit name length
                 />
               </Grid>
               <Grid item xs={12}>
@@ -261,6 +285,7 @@ function MailboxManagement({ onSuccess, onError }) {
                   fullWidth
                   multiline
                   rows={3}
+                  inputProps={{ maxLength: 500 }} // Limit description length
                 />
               </Grid>
             </Grid>
