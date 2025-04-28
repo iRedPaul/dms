@@ -13,7 +13,11 @@ const UserSchema = new mongoose.Schema({
   isAdmin: {
     type: Boolean,
     default: false
-  }
+  },
+  mailboxAccess: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Mailbox'
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);
