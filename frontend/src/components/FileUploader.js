@@ -24,18 +24,10 @@ function FileUploader({ onUploadSuccess }) {
     }
   }, []);
 
+  // Fix for react-dropzone v11.4.2: use string format for accept option instead of object
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'text/plain': ['.txt']
-    },
+    accept: '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.txt',
     maxSize: 50 * 1024 * 1024 // 50MB
   });
 
