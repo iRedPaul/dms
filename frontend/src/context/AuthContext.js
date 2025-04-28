@@ -12,10 +12,16 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  // Updated API URL handling - use window.location.origin in development
+  const API_URL = process.env.NODE_ENV === 'production' 
+    ? (process.env.REACT_APP_API_URL || 'http://localhost:4000')
+    : `${window.location.protocol}//${window.location.hostname}:4000`;
 
   // Setup axios defaults
-  axios.defaults.baseURL = API_URL;
+  useEffect(() => {
+    axios.defaults.baseURL = API_URL;
+    console.log('API URL set to:', API_URL);
+  }, [API_URL]);
 
   // Add auth token to headers
   const setAuthToken = (token) => {
@@ -31,6 +37,7 @@ export const AuthProvider = ({ children }) => {
   // Login user
   const login = async (username, password) => {
     try {
+      console.log('Attempting login to:', `${axios.defaults.baseURL}/api/auth/login`);
       const res = await axios.post('/api/auth/login', { username, password });
       const { token, user } = res.data;
       
