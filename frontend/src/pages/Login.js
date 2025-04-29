@@ -10,8 +10,6 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
-  Card,
-  CardContent,
   Paper,
   Divider
 } from '@mui/material';
@@ -116,7 +114,11 @@ function Login() {
             <Box sx={{ zIndex: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                 <DescriptionIcon sx={{ fontSize: 36, mr: 1 }} />
-                <Typography variant="h4" component="h1" fontWeight={600}>
+                <Typography 
+                  variant="h4" 
+                  component="h1" 
+                  fontWeight={600}
+                >
                   DMS System
                 </Typography>
               </Box>
