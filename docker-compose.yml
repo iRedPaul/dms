@@ -13,6 +13,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: 34ZqYkXDdd4bgJ6gNUNACzsDyd
     networks:
       - dms-network
+  
   # Backend API
   backend:
     image: node:16-alpine
@@ -31,12 +32,19 @@ services:
       - ADMIN_PASSWORD=Test,123
       - PORT=4000
       - NODE_ENV=production
-      - CORS_ORIGIN=https://dms.home-lan.cc
-    command: sh -c "npm install && npm start"
+      - CORS_ORIGIN=https://dms.home-lan.cc,http://localhost:3000
+    command: >
+      sh -c "
+        mkdir -p /app/uploads &&
+        chmod 777 /app/uploads &&
+        npm install &&
+        npm start
+      "
     depends_on:
       - mongo
     networks:
       - dms-network
+  
   # Frontend Build (temporärer Container für den Build-Prozess)
   frontend-build:
     image: node:16-alpine
@@ -44,6 +52,7 @@ services:
     working_dir: /app
     volumes:
       - /opt/dms/frontend:/app
+      - ./manifest.json:/app/public/manifest.json
     environment:
       - NODE_ENV=production
     command: >
@@ -56,6 +65,7 @@ services:
       "
     networks:
       - dms-network
+  
   # Frontend Web Server
   frontend:
     image: nginx:alpine
@@ -71,11 +81,18 @@ services:
       - frontend-build
     networks:
       - dms-network
+
 networks:
   dms-network:
     driver: bridge
+
 volumes:
   dms_mongo_data:
     external: false
   dms_uploads:
     external: false
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/dms/uploads
