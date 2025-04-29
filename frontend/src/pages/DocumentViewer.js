@@ -6,7 +6,6 @@ import {
   Toolbar,
   Typography,
   Button,
-  Container,
   Paper,
   CircularProgress,
   Alert,
@@ -16,7 +15,6 @@ import {
   Link,
   Tooltip,
   Divider,
-  Grid,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -25,10 +23,8 @@ import {
   Drawer,
   Tabs,
   Tab,
-  Chip,
   TextField,
   Card,
-  CardHeader,
   CardContent,
   Avatar,
   Table,
@@ -57,6 +53,9 @@ import { formatDate, formatFileSize } from '../utils/helpers';
 // Set worker path for PDF.js
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
+// Konstante für Metadata-Panel-Breite
+const METADATA_WIDTH = 350; // Breiter für bessere Nutzung des Raums
+
 function DocumentViewer() {
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -69,6 +68,7 @@ function DocumentViewer() {
   const [infoDrawerOpen, setInfoDrawerOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState(0);
   const [metadataEditable, setMetadataEditable] = useState(false);
+  const [pdfScale, setPdfScale] = useState(1.0);
   
   const { id } = useParams();
   const navigate = useNavigate();
@@ -98,6 +98,20 @@ function DocumentViewer() {
     if (id) {
       fetchDocument();
     }
+    
+    // Dynamische Anpassung der PDF-Größe basierend auf der Fenstergröße
+    const handleResize = () => {
+      // Anpassen der Skalierung basierend auf der Fenstergröße
+      const viewportWidth = window.innerWidth - METADATA_WIDTH - 100;
+      const idealWidth = 595; // A4 Breite in Punkten
+      const newScale = Math.min(1.0, viewportWidth / idealWidth);
+      setPdfScale(newScale);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial beim Laden
+    
+    return () => window.removeEventListener('resize', handleResize);
   }, [id]);
 
   const onDocumentLoadSuccess = ({ numPages }) => {
@@ -175,7 +189,8 @@ function DocumentViewer() {
           height: '100%',
           p: 2,
           bgcolor: '#f5f7fa',
-          borderRadius: 2
+          borderRadius: 2,
+          overflow: 'auto'
         }}>
           {pdfLoading && (
             <Skeleton 
@@ -217,9 +232,10 @@ function DocumentViewer() {
                 pageNumber={pageNumber} 
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
-                // A4 format (595 x 842 points)
-                width={595}
-                height={842}
+                // Verbesserte Skalierung für bessere Anpassung
+                width={595 * pdfScale} // A4 Breite mit Skalierung
+                height={842 * pdfScale} // A4 Höhe mit Skalierung
+                scale={1.0}
                 error={null}
               />
             </Document>
@@ -475,48 +491,139 @@ function DocumentViewer() {
         </Breadcrumbs>
       </Box>
       
-      {/* Main content */}
-      <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-        {error && (
-          <Alert severity="error" sx={{ m: 3 }}>
-            {error}
-          </Alert>
-        )}
+      {/* Main content with metadata panel */}
+      <Box sx={{ 
+        flexGrow: 1, 
+        overflow: 'hidden',
+        display: 'flex'
+      }}>
+        {/* Document content */}
+        <Box sx={{ 
+          flexGrow: 1, 
+          overflow: 'auto',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          {error && (
+            <Alert severity="error" sx={{ m: 3 }}>
+              {error}
+            </Alert>
+          )}
+          
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : document ? (
+            <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+              {renderDocumentContent()}
+            </Box>
+          ) : (
+            <Box sx={{ 
+              p: 3, 
+              display: 'flex', 
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '100%'
+            }}>
+              <Paper elevation={2} sx={{ p: 4, textAlign: 'center', borderRadius: 2, maxWidth: 500 }}>
+                <Box sx={{ mb: 2, color: 'text.secondary' }}>
+                  <DescriptionIcon sx={{ fontSize: 60 }} />
+                </Box>
+                <Typography variant="h5" gutterBottom>
+                  Dokument nicht gefunden
+                </Typography>
+                <Typography color="text.secondary" paragraph>
+                  Das angeforderte Dokument existiert nicht oder Sie haben keine Zugriffsberechtigung.
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  onClick={goBack}
+                  startIcon={<ArrowBackIcon />}
+                >
+                  Zurück zur Übersicht
+                </Button>
+              </Paper>
+            </Box>
+          )}
+        </Box>
         
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress />
-          </Box>
-        ) : document ? (
-          <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            {renderDocumentContent()}
-          </Box>
-        ) : (
-          <Box sx={{ 
-            p: 3, 
-            display: 'flex', 
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%'
-          }}>
-            <Paper elevation={2} sx={{ p: 4, textAlign: 'center', borderRadius: 2, maxWidth: 500 }}>
-              <Box sx={{ mb: 2, color: 'text.secondary' }}>
-                <DescriptionIcon sx={{ fontSize: 60 }} />
-              </Box>
-              <Typography variant="h5" gutterBottom>
-                Dokument nicht gefunden
-              </Typography>
-              <Typography color="text.secondary" paragraph>
-                Das angeforderte Dokument existiert nicht oder Sie haben keine Zugriffsberechtigung.
-              </Typography>
-              <Button 
-                variant="contained" 
-                onClick={goBack}
-                startIcon={<ArrowBackIcon />}
-              >
-                Zurück zur Übersicht
-              </Button>
-            </Paper>
+        {/* Right metadata panel - now directly integrated into the main view */}
+        {document && (
+          <Box 
+            sx={{ 
+              width: METADATA_WIDTH, 
+              p: 3,
+              bgcolor: 'background.paper',
+              borderLeft: '1px solid rgba(0, 0, 0, 0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              flexShrink: 0,
+              overflow: 'auto'
+            }}
+          >
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 500 }}>
+              Metadaten
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            <TextField
+              label="Rechnungsnummer"
+              variant="outlined"
+              fullWidth
+              size="small"
+              placeholder="Noch nicht erfasst"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Datum"
+              variant="outlined"
+              fullWidth
+              size="small"
+              placeholder="Noch nicht erfasst"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Betrag"
+              variant="outlined"
+              fullWidth
+              size="small"
+              placeholder="Noch nicht erfasst"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Lieferant"
+              variant="outlined"
+              fullWidth
+              size="small"
+              placeholder="Noch nicht erfasst"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Notizen"
+              variant="outlined"
+              fullWidth
+              multiline
+              rows={4}
+              placeholder="Notizen zum Dokument"
+              sx={{ mb: 2 }}
+            />
+            <Button 
+              variant="contained" 
+              color="primary"
+              fullWidth
+              disabled
+            >
+              Speichern
+            </Button>
+            <Typography 
+              variant="caption" 
+              color="text.secondary" 
+              sx={{ display: 'block', mt: 1, textAlign: 'center' }}
+            >
+              Metadaten-Funktion in Entwicklung
+            </Typography>
           </Box>
         )}
       </Box>
