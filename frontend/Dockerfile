@@ -9,8 +9,8 @@ RUN npm install --legacy-peer-deps
 
 COPY . .
 
-# Korrigierte Umgebungsvariablen für das neue URL-Schema
-ENV REACT_APP_API_URL=/api
+# Updated environment variables for Cloudflare Zero Trust
+ENV REACT_APP_API_URL=https://dms.home-lan.cc/api
 ENV NODE_ENV=production
 
 # Start the development server
