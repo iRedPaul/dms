@@ -1,25 +1,22 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
-  // Konfiguration mit korrekter Domain
-  const API_HOST = process.env.REACT_APP_API_HOST || 'https://dms.home-lan.cc';
-  
   app.use(
     '/api',
     createProxyMiddleware({
-      target: API_HOST,
+      target: process.env.REACT_APP_API_URL || 'https://dms.home-lan.cc',
       changeOrigin: true,
-      secure: false, // Bei selbstsignierten Zertifikaten notwendig
-      pathRewrite: path => path // keine Umschreibung, damit die API-Pfade beibehalten werden
+      pathRewrite: {
+        '^/api': '', // Entferne '/api' vom Pfad für die Weiterleitung
+      },
     })
   );
   
   app.use(
     '/uploads',
     createProxyMiddleware({
-      target: API_HOST,
+      target: process.env.REACT_APP_API_URL || 'https://dms.home-lan.cc',
       changeOrigin: true,
-      secure: false // Bei selbstsignierten Zertifikaten notwendig
     })
   );
 };
