@@ -47,6 +47,11 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import TextFormatIcon from '@mui/icons-material/TextFormat';
+import CommentIcon from '@mui/icons-material/Comment';
+import BorderColorIcon from '@mui/icons-material/BorderColor';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import HighlightIcon from '@mui/icons-material/Highlight';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -56,9 +61,9 @@ import { formatDate, formatFileSize } from '../utils/helpers';
 // Set worker path for PDF.js
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
-// Constants for layout (angepasst für bessere Proportionen und breitere Seitenbereiche)
-const SIDEBAR_WIDTH = 320; // Breiter für bessere Nutzung des Platzes
-const METADATA_WIDTH = 350; // Breiter für bessere Nutzung des Platzes
+// Constants for layout (angepasst für bessere Proportionen und noch breitere Seitenbereiche)
+const SIDEBAR_WIDTH = 350; // Breiter für bessere Nutzung des Platzes
+const METADATA_WIDTH = 380; // Breiter für bessere Nutzung des Platzes
 
 function Dashboard() {
   const [documents, setDocuments] = useState([]);
@@ -76,6 +81,8 @@ function Dashboard() {
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [pdfScale, setPdfScale] = useState(1.0);
+  const [activeTool, setActiveTool] = useState(null);
+  const [annotations, setAnnotations] = useState([]);
   
   const { logout, currentUser } = useAuth();
   const navigate = useNavigate();
@@ -104,11 +111,22 @@ function Dashboard() {
     
     // Dynamische Anpassung der PDF-Größe basierend auf der Fenstergröße
     const handleResize = () => {
-      // Anpassen der Skalierung basierend auf der Fenstergröße
-      const viewportWidth = window.innerWidth - (SIDEBAR_WIDTH + METADATA_WIDTH + 40);
+      // Anpassen der Skalierung basierend auf verfügbarem Platz
+      const viewportWidth = window.innerWidth - (SIDEBAR_WIDTH + METADATA_WIDTH + 80);
+      const viewportHeight = window.innerHeight - 140; // Abzug für Header, Toolbar etc.
+      
+      // A4 Proportionen: 210mm x 297mm (≈ 1:1.414)
       const idealWidth = 595; // A4 Breite in Punkten
-      const newScale = Math.min(1.2, Math.max(0.8, viewportWidth / idealWidth));
-      setPdfScale(newScale);
+      const idealHeight = 842; // A4 Höhe in Punkten
+      
+      // Berechne Skalierungsfaktoren für Breite und Höhe
+      const scaleX = viewportWidth / idealWidth;
+      const scaleY = viewportHeight / idealHeight;
+      
+      // Wähle den kleineren Faktor, um sicherzustellen, dass die Seite ohne Scrollen sichtbar ist
+      const newScale = Math.min(scaleX, scaleY, 1.2); // Max-Skalierung auf 1.2 begrenzen
+      
+      setPdfScale(Math.max(newScale, 0.7)); // Minimum-Skalierung auf 0.7 setzen
     };
     
     window.addEventListener('resize', handleResize);
@@ -130,6 +148,7 @@ function Dashboard() {
     setCurrentDocument(document);
     setPageNumber(1); // Reset page number when document changes
     setNumPages(null); // Reset page count when document changes
+    setAnnotations([]); // Reset annotations
   };
 
   const handleDocumentDetails = (id) => {
@@ -195,6 +214,28 @@ function Dashboard() {
 
   const goToNextPage = () => {
     setPageNumber(prev => Math.min(prev + 1, numPages || 1));
+  };
+  
+  // Annotations-Funktionalität
+  const handleSelectTool = (tool) => {
+    setActiveTool(activeTool === tool ? null : tool);
+  };
+
+  const handleAddAnnotation = (event, type) => {
+    // In einer vollständigen Implementierung würden hier Annotationen zum PDF hinzugefügt
+    // Diese Demo-Implementierung zeigt nur die UI-Elemente
+    const newAnnotation = {
+      id: Date.now(),
+      type,
+      pageNumber,
+      x: event.nativeEvent.offsetX,
+      y: event.nativeEvent.offsetY,
+      content: type === 'highlight' ? 'Hervorgehobener Text' : 
+              type === 'comment' ? 'Neue Bemerkung' : 
+              type === 'bookmark' ? 'Lesezeichen' : 'Stempel'
+    };
+    
+    setAnnotations([...annotations, newAnnotation]);
   };
 
   // Filter documents based on search query
@@ -270,22 +311,99 @@ function Dashboard() {
           height: '100%', 
           display: 'flex', 
           flexDirection: 'column',
-          alignItems: 'center', 
           p: 2,
           overflow: 'auto'
         }}>
+          {/* PDF Annotations Toolbar */}
+          <Paper 
+            elevation={1} 
+            sx={{ 
+              mb: 2, 
+              p: 1, 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 2,
+              bgcolor: 'background.paper'
+            }}
+          >
+            <Tooltip title="Markieren">
+              <IconButton 
+                onClick={() => handleSelectTool('highlight')} 
+                color={activeTool === 'highlight' ? 'primary' : 'default'}
+              >
+                <HighlightIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Kommentar">
+              <IconButton 
+                onClick={() => handleSelectTool('comment')} 
+                color={activeTool === 'comment' ? 'primary' : 'default'}
+              >
+                <CommentIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Stempel">
+              <IconButton 
+                onClick={() => handleSelectTool('stamp')} 
+                color={activeTool === 'stamp' ? 'primary' : 'default'}
+              >
+                <BorderColorIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Lesezeichen">
+              <IconButton 
+                onClick={() => handleSelectTool('bookmark')} 
+                color={activeTool === 'bookmark' ? 'primary' : 'default'}
+              >
+                <BookmarkIcon />
+              </IconButton>
+            </Tooltip>
+            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+            <Tooltip title="Vorherige Seite">
+              <span>
+                <IconButton 
+                  disabled={pageNumber <= 1}
+                  onClick={goToPrevPage}
+                >
+                  <NavigateBeforeIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Typography sx={{ mx: 1, fontWeight: 500, minWidth: 80, textAlign: 'center' }}>
+              {pageNumber} / {numPages || '?'}
+            </Typography>
+            <Tooltip title="Nächste Seite">
+              <span>
+                <IconButton 
+                  disabled={pageNumber >= numPages}
+                  onClick={goToNextPage}
+                >
+                  <NavigateNextIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Paper>
+          
           <Box sx={{ 
             width: '100%', 
             flexGrow: 1,
             display: 'flex', 
             justifyContent: 'center',
-            alignItems: 'center',
+            alignItems: 'flex-start', // Ausrichtung oben für bessere Sichtbarkeit
             overflow: 'auto',
             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
             borderRadius: 2,
             bgcolor: 'white',
             position: 'relative'
-          }}>
+          }}
+            // PDF-Annotation-Handling
+            onClick={(e) => {
+              if (activeTool) {
+                handleAddAnnotation(e, activeTool);
+              }
+            }}
+          >
             <Document
               file={fileUrl}
               onLoadSuccess={onDocumentLoadSuccess}
@@ -316,54 +434,47 @@ function Dashboard() {
             >
               <Page 
                 pageNumber={pageNumber} 
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                // Verbesserte adaptive Skalierung
+                renderTextLayer={true} // Aktiviert Textebene für Textauswahl
+                renderAnnotationLayer={true} // Aktiviert Annotationsebene
+                customTextRenderer={({ str, itemIndex }) => {
+                  // Erlaube Textauswahl (mit Hilfe von react-pdf)
+                  return str;
+                }}
                 width={595 * pdfScale}
                 height={842 * pdfScale}
                 scale={1.0}
               />
+              
+              {/* Render Annotations */}
+              {annotations
+                .filter(ann => ann.pageNumber === pageNumber)
+                .map(annotation => (
+                  <div 
+                    key={annotation.id}
+                    style={{
+                      position: 'absolute',
+                      left: annotation.x - 12,
+                      top: annotation.y - 12,
+                      zIndex: 1000
+                    }}
+                  >
+                    {annotation.type === 'highlight' && (
+                      <HighlightIcon color="warning" />
+                    )}
+                    {annotation.type === 'comment' && (
+                      <CommentIcon color="primary" />
+                    )}
+                    {annotation.type === 'stamp' && (
+                      <BorderColorIcon color="error" />
+                    )}
+                    {annotation.type === 'bookmark' && (
+                      <BookmarkIcon color="success" />
+                    )}
+                  </div>
+                ))
+              }
             </Document>
           </Box>
-          
-          {numPages && (
-            <Box 
-              sx={{ 
-                mt: 2, 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 2,
-                bgcolor: 'background.paper',
-                p: 1.5, 
-                borderRadius: 2,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-              }}
-            >
-              <Button 
-                variant="outlined" 
-                disabled={pageNumber <= 1}
-                onClick={goToPrevPage}
-                startIcon={<NavigateBeforeIcon />}
-                size="small"
-                sx={{ borderRadius: 2 }}
-              >
-                Vorherige
-              </Button>
-              <Typography sx={{ mx: 2, fontWeight: 500 }}>
-                Seite {pageNumber} von {numPages}
-              </Typography>
-              <Button 
-                variant="outlined" 
-                disabled={pageNumber >= numPages}
-                onClick={goToNextPage}
-                endIcon={<NavigateNextIcon />}
-                size="small"
-                sx={{ borderRadius: 2 }}
-              >
-                Nächste
-              </Button>
-            </Box>
-          )}
         </Box>
       );
     } 
@@ -733,7 +844,7 @@ function Dashboard() {
             flexDirection: 'column',
             // Anpassung für besseres A4-Format:
             padding: currentDocument ? '20px 0' : 0, 
-            justifyContent: currentDocument ? 'center' : 'flex-start'
+            justifyContent: currentDocument ? 'flex-start' : 'flex-start'
           }}
         >
           {/* Document toolbar */}
