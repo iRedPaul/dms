@@ -13,7 +13,9 @@ import {
   MenuItem,
   Paper,
   IconButton,
-  Avatar
+  Avatar,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -29,11 +31,21 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [mailboxId, setMailboxId] = useState(selectedMailbox);
+  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Update mailbox when prop changes
   useEffect(() => {
     setMailboxId(selectedMailbox);
   }, [selectedMailbox]);
+
+  // Auto-select first mailbox if none is selected
+  useEffect(() => {
+    if (!mailboxId && mailboxes.length > 0) {
+      setMailboxId(mailboxes[0]._id);
+    }
+  }, [mailboxes, mailboxId]);
 
   const onDrop = useCallback(acceptedFiles => {
     if (acceptedFiles.length > 0) {
@@ -42,11 +54,21 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
     }
   }, []);
 
-  // Fix for react-dropzone v11.4.2: use string format for accept option instead of object
+  // Configure dropzone with modern syntax and better file handling
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
-    accept: '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.txt',
-    maxSize: 50 * 1024 * 1024 // 50MB
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'text/plain': ['.txt']
+    },
+    maxSize: 50 * 1024 * 1024, // 50MB
+    multiple: false
   });
 
   const handleUpload = async () => {
@@ -55,38 +77,55 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
       return;
     }
 
+    if (!mailboxId) {
+      setError('Bitte wählen Sie einen Postkorb aus');
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(0);
     setError('');
 
     const formData = new FormData();
-    
-    // Verwende den Originaldateinamen - keine spezielle Codierung
     formData.append('file', file);
-    
-    // Add mailbox ID if selected
-    if (mailboxId) {
-      formData.append('mailboxId', mailboxId);
-    }
+    formData.append('mailboxId', mailboxId);
 
     try {
-      await axios.post('/api/documents/upload', formData, {
+      const config = {
         headers: {
-          'Content-Type': 'multipart/form-data' // Ohne charset-Parameter
+          'Content-Type': 'multipart/form-data'
         },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
             (progressEvent.loaded * 100) / progressEvent.total
           );
           setUploadProgress(percentCompleted);
-        }
-      });
+        },
+        timeout: 60000 // Extended timeout for larger files
+      };
+
+      await axios.post('/api/documents/upload', formData, config);
 
       setFile(null);
       if (onUploadSuccess) onUploadSuccess();
     } catch (err) {
       console.error('Upload error:', err);
-      setError(err.response?.data?.msg || 'Fehler beim Hochladen der Datei');
+      
+      let errorMessage = 'Fehler beim Hochladen der Datei';
+      
+      if (err.response) {
+        // Server responded with an error
+        if (err.response.status === 413) {
+          errorMessage = 'Die Datei ist zu groß. Maximale Größe: 50MB';
+        } else if (err.response.data && err.response.data.msg) {
+          errorMessage = err.response.data.msg;
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        errorMessage = 'Der Server antwortet nicht. Bitte versuchen Sie es später erneut.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setUploading(false);
     }
@@ -249,10 +288,12 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
         </Paper>
       )}
       
+      {/* Postkorb Auswahl - Ohne "Kein Postkorb" Option */}
       <FormControl 
         fullWidth 
         sx={{ mb: 3 }}
         variant="outlined"
+        required
       >
         <InputLabel id="mailbox-upload-label">Postkorb auswählen</InputLabel>
         <Select
@@ -261,11 +302,13 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
           value={mailboxId}
           label="Postkorb auswählen"
           onChange={handleMailboxChange}
-          disabled={uploading}
+          disabled={uploading || mailboxes.length === 0}
+          sx={{
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: (!mailboxId && file) ? 'error.main' : undefined
+            }
+          }}
         >
-          <MenuItem value="">
-            <em>Kein Postkorb</em>
-          </MenuItem>
           {mailboxes.map((mailbox) => (
             <MenuItem key={mailbox._id} value={mailbox._id}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -281,7 +324,7 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
         variant="contained"
         color="primary"
         onClick={handleUpload}
-        disabled={!file || uploading}
+        disabled={!file || uploading || !mailboxId || mailboxes.length === 0}
         fullWidth
         startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
         sx={{ 
@@ -291,6 +334,15 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
       >
         {uploading ? 'Wird hochgeladen...' : 'Hochladen'}
       </Button>
+      
+      {mailboxes.length === 0 && (
+        <Alert 
+          severity="warning" 
+          sx={{ mt: 3, borderRadius: 2 }}
+        >
+          Keine Postkörbe verfügbar. Bitte wenden Sie sich an Ihren Administrator.
+        </Alert>
+      )}
       
       {file && !uploading && (
         <Box sx={{ textAlign: 'center', mt: 2 }}>
