@@ -13,7 +13,6 @@ import {
   MenuItem,
   Paper,
   IconButton,
-  Chip,
   Avatar
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
