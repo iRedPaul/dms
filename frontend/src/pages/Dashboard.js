@@ -6,7 +6,6 @@ import {
   Toolbar,
   Typography,
   Button,
-  Container,
   Paper,
   List,
   ListItem,
@@ -16,7 +15,6 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  Grid,
   FormControl,
   InputLabel,
   Select,
@@ -33,8 +31,7 @@ import {
   Drawer,
   TextField,
   InputAdornment,
-  Avatar,
-  Badge
+  Avatar
 } from '@mui/material';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -59,9 +56,9 @@ import { formatDate, formatFileSize } from '../utils/helpers';
 // Set worker path for PDF.js
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
-// Constants for layout (adjusted for better proportions)
-const SIDEBAR_WIDTH = 280; // Reduziert von 320
-const METADATA_WIDTH = 280; // Reduziert von 300
+// Constants for layout (angepasst für bessere Proportionen und breitere Seitenbereiche)
+const SIDEBAR_WIDTH = 320; // Breiter für bessere Nutzung des Platzes
+const METADATA_WIDTH = 350; // Breiter für bessere Nutzung des Platzes
 
 function Dashboard() {
   const [documents, setDocuments] = useState([]);
@@ -78,8 +75,7 @@ function Dashboard() {
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
-  const [pdfLoading, setPdfLoading] = useState(true);
-  const [pdfError, setPdfError] = useState(false);
+  const [pdfScale, setPdfScale] = useState(1.0);
   
   const { logout, currentUser } = useAuth();
   const navigate = useNavigate();
@@ -105,6 +101,20 @@ function Dashboard() {
 
   useEffect(() => {
     fetchData();
+    
+    // Dynamische Anpassung der PDF-Größe basierend auf der Fenstergröße
+    const handleResize = () => {
+      // Anpassen der Skalierung basierend auf der Fenstergröße
+      const viewportWidth = window.innerWidth - (SIDEBAR_WIDTH + METADATA_WIDTH + 40);
+      const idealWidth = 595; // A4 Breite in Punkten
+      const newScale = Math.min(1.2, Math.max(0.8, viewportWidth / idealWidth));
+      setPdfScale(newScale);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial beim Laden
+    
+    return () => window.removeEventListener('resize', handleResize);
   }, [fetchData]);
 
   const handleLogout = () => {
@@ -120,8 +130,6 @@ function Dashboard() {
     setCurrentDocument(document);
     setPageNumber(1); // Reset page number when document changes
     setNumPages(null); // Reset page count when document changes
-    setPdfLoading(true); // Reset PDF loading state
-    setPdfError(false); // Reset PDF error state
   };
 
   const handleDocumentDetails = (id) => {
@@ -176,24 +184,9 @@ function Dashboard() {
     return mailbox ? mailbox.name : 'Unbekannt';
   };
 
-  const getDocumentIcon = (mimeType) => {
-    if (mimeType.startsWith('image/')) {
-      return <InsertDriveFileIcon sx={{ color: '#4CAF50' }} />;
-    } else if (mimeType === 'application/pdf') {
-      return <InsertDriveFileIcon sx={{ color: '#F44336' }} />;
-    } else if (mimeType.includes('word') || mimeType.includes('document')) {
-      return <InsertDriveFileIcon sx={{ color: '#2196F3' }} />;
-    } else if (mimeType.includes('excel') || mimeType.includes('sheet')) {
-      return <InsertDriveFileIcon sx={{ color: '#4CAF50' }} />;
-    } else {
-      return <InsertDriveFileIcon />;
-    }
-  };
-
   // PDF functionality
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
-    setPdfLoading(false);
   };
 
   const goToPrevPage = () => {
@@ -278,7 +271,8 @@ function Dashboard() {
           display: 'flex', 
           flexDirection: 'column',
           alignItems: 'center', 
-          p: 2 
+          p: 2,
+          overflow: 'auto'
         }}>
           <Box sx={{ 
             width: '100%', 
@@ -295,10 +289,8 @@ function Dashboard() {
             <Document
               file={fileUrl}
               onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={(error) => {
+              onError={(error) => {
                 console.error('Error loading PDF:', error);
-                setPdfError(true);
-                setPdfLoading(false);
               }}
               loading={
                 <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -326,10 +318,9 @@ function Dashboard() {
                 pageNumber={pageNumber} 
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
-                // Verwende A4-Format für die Seitenansicht (ca. 595 x 842 in Punkten)
-                // Oder passe dynamisch die Breite an, aber behalte A4-Proportion bei
-                width={Math.min(595, window.innerWidth - (SIDEBAR_WIDTH + METADATA_WIDTH + 100))}
-                height={842}
+                // Verbesserte adaptive Skalierung
+                width={595 * pdfScale}
+                height={842 * pdfScale}
                 scale={1.0}
               />
             </Document>
@@ -806,16 +797,17 @@ function Dashboard() {
           </Box>
         </Box>
         
-        {/* Right sidebar for metadata (placeholder for future implementation) */}
+        {/* Right sidebar for metadata - nun breiter für bessere Raumnutzung */}
         <Box 
           sx={{ 
             width: METADATA_WIDTH, 
-            p: 2,
+            p: 3,
             bgcolor: 'background.paper',
             borderLeft: '1px solid rgba(0, 0, 0, 0.08)',
             display: 'flex',
             flexDirection: 'column',
-            flexShrink: 0
+            flexShrink: 0,
+            overflow: 'auto'
           }}
         >
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 500 }}>
