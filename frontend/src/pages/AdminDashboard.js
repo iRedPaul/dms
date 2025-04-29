@@ -14,7 +14,6 @@ import {
   IconButton,
   Chip,
   Avatar,
-  Divider,
   Drawer,
   List,
   ListItem,
