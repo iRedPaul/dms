@@ -16,177 +16,61 @@ const Mailbox = require('./models/Mailbox');
 
 // Middleware
 const authMiddleware = require('./middleware/auth');
-const adminMiddleware = require('./middleware/admin');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Verbesserte CORS-Einstellungen für Cloudflare Zero Trust
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['https://dms.home-lan.cc', 'http://localhost:3000'],
-  credentials: true,
-  optionsSuccessStatus: 200,
+// CORS-Einstellungen
+app.use(cors({
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
-};
-
-// Middleware
-app.use(cors(corsOptions));
-
-// Increase the limit for JSON body size
-app.use(express.json({
-  charset: 'utf-8',
-  type: ['application/json', 'text/plain'],
-  limit: '50mb'
 }));
 
-app.use(express.urlencoded({ 
-  extended: true, 
-  charset: 'utf-8',
-  limit: '50mb'
-}));
+// Body-Parser
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Logging
 app.use(morgan('dev'));
 
-// Enhanced file upload configuration
+// File Upload
 app.use(fileUpload({
   createParentPath: true,
-  limits: { 
-    fileSize: 50 * 1024 * 1024, // 50MB max file size
-    files: 1 // Allow only one file per request
-  },
-  abortOnLimit: true,
-  responseOnLimit: 'Die Datei ist zu groß (maximal 50MB).',
-  useTempFiles: true,
-  tempFileDir: '/tmp/',
-  debug: process.env.NODE_ENV !== 'production'
+  limits: { fileSize: 50 * 1024 * 1024 },
 }));
 
-// Make sure uploads directory exists
+// Uploads-Verzeichnis erstellen
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log('Created uploads directory');
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('Uploads-Verzeichnis erstellt:', uploadsDir);
+  } catch (err) {
+    console.error('Fehler beim Erstellen des Uploads-Verzeichnisses:', err);
+  }
 }
 
-// Serve static files with proper caching headers
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  maxAge: '1d', // Cache for 1 day
-  setHeaders: (res, path) => {
-    res.setHeader('Content-Disposition', 'inline');
-    // Add security headers
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-  }
-}));
+// Statische Dateien
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Explizites Setzen der Content-Type Header für alle Antworten
-app.use((req, res, next) => {
-  // Setze die UTF-8 Kodierung für alle Antworten
-  res.set({
-    'Content-Type': 'application/json; charset=utf-8',
-    'X-Content-Type-Options': 'nosniff'
-  });
-  
-  // Stelle sicher, dass alle Anfragen als UTF-8 interpretiert werden
-  if (req.headers['content-type']) {
-    if (!req.headers['content-type'].includes('charset=utf-8')) {
-      req.headers['content-type'] += '; charset=utf-8';
-    }
-  }
-  
-  next();
-});
+// Routen
 
-// Middleware für Cloudflare-Headers
-app.use((req, res, next) => {
-  // Wenn ein X-Forwarded-Proto Header vorhanden ist, nutze ihn für die URL-Generierung
-  if (req.headers['x-forwarded-proto'] === 'https') {
-    req.protocol = 'https';
-  }
-  // Vertraue dem X-Forwarded-For Header für die Client-IP
-  if (req.headers['x-forwarded-for']) {
-    const forwardedIps = req.headers['x-forwarded-for'].split(',');
-    req.realIp = forwardedIps[0].trim();
-  }
-  next();
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
-  res.status(500).json({ 
-    error: true, 
-    message: err.message || 'Serverfehler aufgetreten'
+// Health Check
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'DMS service is running', 
+    timestamp: new Date().toISOString(),
+    charset: 'UTF-8',
+    version: '1.0.2'
   });
 });
-
-// Connect to MongoDB with improved connection options
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  autoIndex: true, // Build indexes
-  family: 4, // Use IPv4, skip trying IPv6
-  keepAlive: true,
-  keepAliveInitialDelay: 300000,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  connectTimeoutMS: 10000
-})
-.then(() => console.log('MongoDB Connected'))
-.catch(err => console.log('MongoDB Connection Error:', err));
-
-// Create admin user if not exists
-const createAdminUser = async () => {
-  try {
-    const adminExists = await User.findOne({ username: process.env.ADMIN_USER });
-    
-    if (!adminExists) {
-      const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-      await User.create({
-        username: process.env.ADMIN_USER,
-        password: hashedPassword,
-        isAdmin: true
-      });
-      console.log('Admin user created');
-    }
-  } catch (error) {
-    console.error('Error creating admin user:', error);
-  }
-};
-
-// Create default mailbox if not exists
-const createDefaultMailbox = async () => {
-  try {
-    const defaultMailboxExists = await Mailbox.findOne({ name: 'Standard' });
-    
-    if (!defaultMailboxExists) {
-      const adminUser = await User.findOne({ isAdmin: true });
-      
-      if (adminUser) {
-        const defaultMailbox = await Mailbox.create({
-          name: 'Standard',
-          description: 'Standardpostkorb für alle Dokumente',
-          createdBy: adminUser._id
-        });
-        
-        // Give all users access to default mailbox
-        await User.updateMany({}, { $push: { mailboxAccess: defaultMailbox._id } });
-        
-        console.log('Default mailbox created');
-      }
-    }
-  } catch (error) {
-    console.error('Error creating default mailbox:', error);
-  }
-};
-
-// API routes
-app.use('/api/users', require('./routes/users'));
-app.use('/api/mailboxes', require('./routes/mailboxes'));
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
   try {
+    console.log('Login-Versuch für:', req.body.username);
     const { username, password } = req.body;
     const user = await User.findOne({ username });
     
@@ -207,17 +91,17 @@ app.post('/api/auth/login', async (req, res) => {
       }
     };
 
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' }, (err, token) => {
+    jwt.sign(payload, process.env.JWT_SECRET || 'defaultsecret', { expiresIn: '8h' }, (err, token) => {
       if (err) throw err;
       res.json({ token, user: payload.user });
     });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Login-Fehler:', err.message);
+    res.status(500).json({ msg: 'Server error', error: err.message });
   }
 });
 
-// Get current user
+// Benutzer abrufen
 app.get('/api/auth/user', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
@@ -225,297 +109,222 @@ app.get('/api/auth/user', authMiddleware, async (req, res) => {
       .populate('mailboxAccess', 'name description');
     res.json(user);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Fehler beim Abrufen des Benutzers:', err.message);
+    res.status(500).json({ msg: 'Server error', error: err.message });
   }
 });
 
-// Upload document
-app.post('/api/documents/upload', authMiddleware, async (req, res) => {
-  try {
-    if (!req.files || Object.keys(req.files).length === 0) {
-      return res.status(400).json({ msg: 'Keine Datei hochgeladen' });
-    }
-
-    const file = req.files.file;
-    const { mailboxId } = req.body;
-    
-    // Require mailbox selection
-    if (!mailboxId) {
-      return res.status(400).json({ msg: 'Bitte wählen Sie einen Postkorb aus' });
-    }
-    
-    // Validate mailbox exists and user has access to it
-    const mailbox = await Mailbox.findById(mailboxId);
-    if (!mailbox) {
-      return res.status(404).json({ msg: 'Postkorb nicht gefunden' });
-    }
-    
-    if (!req.user.isAdmin) {
-      const user = await User.findById(req.user.id);
-      const hasAccess = user.mailboxAccess.some(id => id.toString() === mailboxId);
-      
-      if (!hasAccess) {
-        return res.status(403).json({ msg: 'Keine Berechtigung für diesen Postkorb' });
-      }
-    }
-
-    // Sanitize filename to ensure UTF-8 compatibility
-    const sanitizedName = Buffer.from(file.name, 'latin1').toString('utf8');
-    const fileName = `${Date.now()}_${sanitizedName}`;
-    const filePath = `uploads/${fileName}`;
-    
-    try {
-      // Move file to uploads directory
-      await file.mv(path.join(__dirname, filePath));
-    } catch (moveError) {
-      console.error('Error moving file:', moveError);
-      return res.status(500).json({ msg: 'Fehler beim Speichern der Datei' });
-    }
-    
-    // Save document info to database
-    const newDocument = new Document({
-      name: sanitizedName,
-      path: filePath,
-      type: file.mimetype,
-      size: file.size,
-      mailbox: mailboxId,
-      uploadedBy: req.user.id
-    });
-
-    await newDocument.save();
-    
-    // Populate mailbox info for response
-    const document = await Document.findById(newDocument._id)
-      .populate('mailbox', 'name')
-      .populate('uploadedBy', 'username');
-      
-    res.json(document);
-  } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ msg: 'Serverfehler beim Hochladen' });
-  }
-});
-
-// Get all documents (filtered by mailbox if specified)
+// Dokumente abrufen (mit besserer Fehlerbehandlung)
 app.get('/api/documents', authMiddleware, async (req, res) => {
   try {
+    console.log('GET /api/documents - Benutzerdaten:', req.user);
+    
     const { mailboxId } = req.query;
+    console.log('GET /api/documents - Angeforderter Postkorb:', mailboxId);
+    
     let query = {};
     
     // Filter by mailbox if specified
     if (mailboxId) {
       query.mailbox = mailboxId;
       
-      // Verify user has access to this mailbox
+      // Benutzer-Zugriff prüfen
       if (!req.user.isAdmin) {
+        console.log('Benutzer ist kein Admin, prüfe Zugriffsrechte');
         const user = await User.findById(req.user.id);
+        console.log('Benutzer-Postkörbe:', user.mailboxAccess);
+        
         const hasAccess = user.mailboxAccess.some(id => id.toString() === mailboxId);
         
         if (!hasAccess) {
+          console.log('Zugriff verweigert auf Postkorb:', mailboxId);
           return res.status(403).json({ msg: 'Keine Berechtigung für diesen Postkorb' });
         }
       }
     } else {
-      // For non-admins, only show documents from accessible mailboxes
-      const user = await User.findById(req.user.id);
-      query.mailbox = { $in: user.mailboxAccess };
-    }
-    
-    const documents = await Document.find(query)
-      .sort({ createdAt: -1 })
-      .populate('uploadedBy', 'username')
-      .populate('mailbox', 'name');
+      console.log('Kein spezifischer Postkorb angegeben');
       
-    res.json(documents);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Get a document by id
-app.get('/api/documents/:id', authMiddleware, async (req, res) => {
-  try {
-    const document = await Document.findById(req.params.id)
-      .populate('uploadedBy', 'username')
-      .populate('mailbox', 'name');
-      
-    if (!document) {
-      return res.status(404).json({ msg: 'Dokument nicht gefunden' });
-    }
-    
-    // Check if user has access to this document's mailbox
-    if (!req.user.isAdmin && document.mailbox) {
-      const user = await User.findById(req.user.id);
-      const hasAccess = user.mailboxAccess.some(
-        id => id.toString() === document.mailbox._id.toString()
-      );
-      
-      if (!hasAccess) {
-        return res.status(403).json({ msg: 'Keine Berechtigung für dieses Dokument' });
-      }
-    }
-    
-    res.json(document);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Delete document
-app.delete('/api/documents/:id', authMiddleware, async (req, res) => {
-  try {
-    const document = await Document.findById(req.params.id);
-    
-    if (!document) {
-      return res.status(404).json({ msg: 'Dokument nicht gefunden' });
-    }
-    
-    // Check if user has access to delete this document
-    if (!req.user.isAdmin && document.uploadedBy.toString() !== req.user.id) {
-      return res.status(403).json({ msg: 'Keine Berechtigung zum Löschen dieses Dokuments' });
-    }
-    
-    // Delete file from uploads directory
-    const filePath = path.join(__dirname, document.path);
-    
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-    
-    await document.remove();
-    res.json({ msg: 'Dokument entfernt' });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Move document to another mailbox
-app.put('/api/documents/:id/move', authMiddleware, async (req, res) => {
-  try {
-    const { mailboxId } = req.body;
-    
-    if (!mailboxId) {
-      return res.status(400).json({ msg: 'Kein Zielpostkorb angegeben' });
-    }
-    
-    const document = await Document.findById(req.params.id);
-    
-    if (!document) {
-      return res.status(404).json({ msg: 'Dokument nicht gefunden' });
-    }
-    
-    // Check if mailbox exists
-    const mailbox = await Mailbox.findById(mailboxId);
-    if (!mailbox) {
-      return res.status(404).json({ msg: 'Zielpostkorb nicht gefunden' });
-    }
-    
-    // Check if user has access to the target mailbox
-    if (!req.user.isAdmin) {
-      const user = await User.findById(req.user.id);
-      const hasAccess = user.mailboxAccess.some(id => id.toString() === mailboxId);
-      
-      if (!hasAccess) {
-        return res.status(403).json({ msg: 'Keine Berechtigung für den Zielpostkorb' });
-      }
-      
-      // Also check if user has access to the document's current mailbox
-      if (document.mailbox) {
-        const hasSourceAccess = user.mailboxAccess.some(
-          id => id.toString() === document.mailbox.toString()
-        );
-        
-        if (!hasSourceAccess) {
-          return res.status(403).json({ msg: 'Keine Berechtigung für dieses Dokument' });
+      // Für normale Benutzer nur Dokumente aus zugänglichen Postkörben zeigen
+      if (!req.user.isAdmin) {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+          console.log('Benutzer nicht gefunden');
+          return res.status(404).json({ msg: 'Benutzer nicht gefunden' });
         }
-      }
-    }
-    
-    // Update document with new mailbox
-    document.mailbox = mailboxId;
-    await document.save();
-    
-    // Return updated document
-    const updatedDocument = await Document.findById(document._id)
-      .populate('mailbox', 'name')
-      .populate('uploadedBy', 'username');
-    
-    res.json(updatedDocument);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Rename document
-app.put('/api/documents/:id/rename', authMiddleware, async (req, res) => {
-  try {
-    const { name } = req.body;
-    
-    if (!name || name.trim() === '') {
-      return res.status(400).json({ msg: 'Kein Name angegeben' });
-    }
-    
-    const document = await Document.findById(req.params.id);
-    
-    if (!document) {
-      return res.status(404).json({ msg: 'Dokument nicht gefunden' });
-    }
-    
-    // Check if user has access to this document
-    if (!req.user.isAdmin) {
-      const user = await User.findById(req.user.id);
-      
-      if (document.mailbox) {
-        const hasAccess = user.mailboxAccess.some(
-          id => id.toString() === document.mailbox.toString()
-        );
         
-        if (!hasAccess) {
-          return res.status(403).json({ msg: 'Keine Berechtigung für dieses Dokument' });
+        // Prüfen, ob mailboxAccess existiert
+        if (!user.mailboxAccess || user.mailboxAccess.length === 0) {
+          console.log('Benutzer hat keine Postkorbzugriffe');
+          return res.json([]); // Keine Dokumente, wenn keine Postkörbe zugewiesen
         }
+        
+        query.mailbox = { $in: user.mailboxAccess };
       }
     }
     
-    // Update document name
-    document.name = name.trim();
-    await document.save();
+    console.log('Datenbank-Query:', JSON.stringify(query));
     
-    // Return updated document
-    const updatedDocument = await Document.findById(document._id)
-      .populate('mailbox', 'name')
-      .populate('uploadedBy', 'username');
-    
-    res.json(updatedDocument);
+    try {
+      const documents = await Document.find(query)
+        .sort({ createdAt: -1 })
+        .populate('uploadedBy', 'username')
+        .populate('mailbox', 'name');
+      
+      console.log(`${documents.length} Dokumente gefunden`);
+      res.json(documents);
+    } catch (dbErr) {
+      console.error('Datenbank-Fehler beim Abrufen der Dokumente:', dbErr);
+      return res.status(500).json({ msg: 'Datenbankfehler', error: dbErr.message });
+    }
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Allgemeiner Fehler bei /api/documents:', err);
+    res.status(500).json({ msg: 'Server error', error: err.message, stack: err.stack });
   }
 });
 
-// Gesundheitsprüfung für Cloudflare
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
-    message: 'DMS service is running', 
-    timestamp: new Date().toISOString(),
-    charset: 'UTF-8',
-    version: '1.0.2'
+// Postkörbe abrufen
+app.get('/api/mailboxes', authMiddleware, async (req, res) => {
+  try {
+    console.log('GET /api/mailboxes - Benutzer:', req.user.username);
+    
+    let mailboxes;
+    
+    if (req.user.isAdmin) {
+      // Admins sehen alle Postkörbe
+      mailboxes = await Mailbox.find().sort({ createdAt: -1 });
+    } else {
+      // Normale Benutzer sehen nur ihre zugänglichen Postkörbe
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({ msg: 'Benutzer nicht gefunden' });
+      }
+      
+      if (!user.mailboxAccess || user.mailboxAccess.length === 0) {
+        return res.json([]); // Keine Postkörbe, wenn keine zugewiesen
+      }
+      
+      mailboxes = await Mailbox.find({
+        _id: { $in: user.mailboxAccess }
+      }).sort({ createdAt: -1 });
+    }
+    
+    console.log(`${mailboxes.length} Postkörbe gefunden`);
+    res.json(mailboxes);
+  } catch (err) {
+    console.error('Fehler beim Abrufen der Postkörbe:', err);
+    res.status(500).json({ msg: 'Server error', error: err.message });
+  }
+});
+
+// Admin-Benutzer erstellen, wenn keiner existiert
+const createAdminUser = async () => {
+  try {
+    const adminExists = await User.findOne({ username: process.env.ADMIN_USER || 'admin' });
+    
+    if (!adminExists) {
+      const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin', 10);
+      await User.create({
+        username: process.env.ADMIN_USER || 'admin',
+        password: hashedPassword,
+        isAdmin: true
+      });
+      console.log('Admin-Benutzer erstellt');
+    }
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Admin-Benutzers:', error);
+  }
+};
+
+// Standard-Postkorb erstellen, wenn keiner existiert
+const createDefaultMailbox = async () => {
+  try {
+    const defaultMailboxExists = await Mailbox.findOne({ name: 'Standard' });
+    
+    if (!defaultMailboxExists) {
+      const adminUser = await User.findOne({ isAdmin: true });
+      
+      if (adminUser) {
+        const defaultMailbox = await Mailbox.create({
+          name: 'Standard',
+          description: 'Standardpostkorb für alle Dokumente',
+          createdBy: adminUser._id
+        });
+        
+        // Allen Benutzern Zugriff auf den Standard-Postkorb geben
+        await User.updateMany({}, { $push: { mailboxAccess: defaultMailbox._id } });
+        
+        console.log('Standard-Postkorb erstellt');
+      }
+    }
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Standard-Postkorbs:', error);
+  }
+};
+
+// MongoDB-Verbindung mit besserer Fehlerbehandlung
+const connectDB = async () => {
+  try {
+    console.log('Verbinde mit MongoDB...');
+    console.log('MongoDB URI:', process.env.MONGO_URI ? 'Vorhanden' : 'Fehlt!');
+    
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000
+    });
+    
+    console.log('MongoDB erfolgreich verbunden');
+    return true;
+  } catch (err) {
+    console.error('MongoDB-Verbindungsfehler:', err);
+    return false;
+  }
+};
+
+// Server starten mit Fehlerbehandlung
+const startServer = async () => {
+  // Teste Uploads-Verzeichnis-Berechtigungen
+  try {
+    const testFile = path.join(uploadsDir, 'test.txt');
+    fs.writeFileSync(testFile, 'Test');
+    fs.unlinkSync(testFile);
+    console.log('Uploads-Verzeichnis-Berechtigungen OK');
+  } catch (err) {
+    console.error('Fehler bei Uploads-Verzeichnis-Berechtigungen:', err);
+  }
+  
+  // Verbinde zur Datenbank
+  const dbConnected = await connectDB();
+  
+  if (dbConnected) {
+    // Erstelle Admin und Standard-Postkorb
+    await createAdminUser();
+    await createDefaultMailbox();
+  } else {
+    console.log('HINWEIS: Server startet ohne Datenbankverbindung - einige Funktionen werden nicht verfügbar sein.');
+  }
+  
+  // Server starten
+  app.listen(PORT, () => {
+    console.log(`Server läuft auf Port ${PORT}`);
+  });
+};
+
+// Globaler Error-Handler
+app.use((err, req, res, next) => {
+  console.error('Globaler Fehler:', err);
+  res.status(500).json({ 
+    msg: 'Server error', 
+    error: err.message,
+    path: req.path
   });
 });
 
-// Catch all API routes
+// 404-Handler
 app.all('/api/*', (req, res) => {
-  res.status(404).json({ msg: 'API endpoint nicht gefunden' });
+  console.log('404 - API-Endpunkt nicht gefunden:', req.path);
+  res.status(404).json({ msg: 'API-Endpunkt nicht gefunden' });
 });
 
-// Initialize admin user and start server
-app.listen(PORT, async () => {
-  await createAdminUser();
-  await createDefaultMailbox();
-  console.log(`Server running on port ${PORT} with UTF-8 support`);
-});
+// Starte den Server
+startServer();
