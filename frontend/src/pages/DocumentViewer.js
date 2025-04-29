@@ -73,10 +73,10 @@ function DocumentViewer() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Dynamic API URL based on environment with type safety (aktualisiert für Cloudflare)
+  // Korrigierte URL-Verarbeitung für Cloudflare Zero Trust
   const API_URL = process.env.NODE_ENV === 'production' 
     ? (process.env.REACT_APP_API_URL 
-        ? process.env.REACT_APP_API_URL.substring(0, process.env.REACT_APP_API_URL.length - 4) // Entferne "/api" vom Ende
+        ? process.env.REACT_APP_API_URL.replace('/api', '') // Entferne "/api" vom Ende
         : 'https://dms.home-lan.cc')
     : `${window.location.protocol}//${window.location.hostname}:4000`;
 
@@ -162,7 +162,7 @@ function DocumentViewer() {
   const renderDocumentContent = () => {
     if (!document) return null;
 
-    // Ensure we have a valid file URL string
+    // Ensure we have a valid file URL string - FIXED PATH CONSTRUCTION
     const fileUrl = document.path ? `${API_URL}/${document.path}` : '';
 
     // Check if document is PDF
@@ -180,8 +180,8 @@ function DocumentViewer() {
           {pdfLoading && (
             <Skeleton 
               variant="rectangular" 
-              width={Math.min(800, window.innerWidth - 100)} 
-              height={800}
+              width={595} // A4 width in points
+              height={842} // A4 height in points
               animation="wave"
               sx={{ borderRadius: 2 }}
             />
@@ -217,7 +217,9 @@ function DocumentViewer() {
                 pageNumber={pageNumber} 
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
-                width={Math.min(800, window.innerWidth - 100)}
+                // A4 format (595 x 842 points)
+                width={595}
+                height={842}
                 error={null}
               />
             </Document>
@@ -486,7 +488,7 @@ function DocumentViewer() {
             <CircularProgress />
           </Box>
         ) : document ? (
-          <Box sx={{ height: '100%' }}>
+          <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             {renderDocumentContent()}
           </Box>
         ) : (
