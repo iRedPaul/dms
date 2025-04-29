@@ -31,18 +31,43 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json({ charset: 'utf-8' }));
-app.use(express.urlencoded({ extended: true }));
+
+// Verbesserte UTF-8-Konfiguration
+app.use(express.json({
+  charset: 'utf-8',
+  type: ['application/json', 'text/plain']
+}));
+
+app.use(express.urlencoded({ 
+  extended: true, 
+  charset: 'utf-8' 
+}));
+
 app.use(morgan('dev'));
 app.use(fileUpload({
   createParentPath: true,
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB max file size
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max file size
+  abortOnLimit: true,
+  responseOnLimit: 'Datei ist zu groß (max 50MB).'
 }));
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Add proper UTF-8 encoding
+// Explizites Setzen der Content-Type Header für alle Antworten
 app.use((req, res, next) => {
-  res.header('Content-Type', 'application/json; charset=utf-8');
+  // Setze die UTF-8 Kodierung für alle Antworten
+  res.set({
+    'Content-Type': 'application/json; charset=utf-8',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  
+  // Stelle sicher, dass alle Anfragen als UTF-8 interpretiert werden
+  if (req.headers['content-type']) {
+    if (!req.headers['content-type'].includes('charset=utf-8')) {
+      req.headers['content-type'] += '; charset=utf-8';
+    }
+  }
+  
   next();
 });
 
@@ -60,10 +85,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Connect to MongoDB
+// Connect to MongoDB with improved connection options
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  autoIndex: true, // Build indexes
+  family: 4, // Use IPv4, skip trying IPv6
+  keepAlive: true,
+  keepAliveInitialDelay: 300000
 })
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.log('MongoDB Connection Error:', err));
@@ -190,7 +219,9 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
       }
     }
 
-    const fileName = `${Date.now()}_${file.name}`;
+    // Sanitize filename to ensure UTF-8 compatibility
+    const sanitizedName = Buffer.from(file.name, 'latin1').toString('utf8');
+    const fileName = `${Date.now()}_${sanitizedName}`;
     const filePath = `uploads/${fileName}`;
     
     // Move file to uploads directory
@@ -198,7 +229,7 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
     
     // Save document info to database
     const newDocument = new Document({
-      name: file.name,
+      name: sanitizedName,
       path: filePath,
       type: file.mimetype,
       size: file.size,
@@ -319,12 +350,18 @@ app.delete('/api/documents/:id', authMiddleware, async (req, res) => {
 
 // Gesundheitsprüfung für Cloudflare
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'DMS service is running' });
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'DMS service is running', 
+    timestamp: new Date().toISOString(),
+    charset: 'UTF-8',
+    version: '1.0.1'
+  });
 });
 
 // Initialize admin user and start server
 app.listen(PORT, async () => {
   await createAdminUser();
   await createDefaultMailbox();
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} with UTF-8 support`);
 });
