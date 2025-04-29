@@ -6,6 +6,7 @@ const path = require('path');
 const morgan = require('morgan');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
 require('dotenv').config();
 
 // Models
@@ -22,7 +23,7 @@ const PORT = process.env.PORT || 4000;
 
 // Verbesserte CORS-Einstellungen für Cloudflare Zero Trust
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'https://dms.home-lan.cc',
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['https://dms.home-lan.cc', 'http://localhost:3000'],
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -32,26 +33,51 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 
-// Verbesserte UTF-8-Konfiguration
+// Increase the limit for JSON body size
 app.use(express.json({
   charset: 'utf-8',
-  type: ['application/json', 'text/plain']
+  type: ['application/json', 'text/plain'],
+  limit: '50mb'
 }));
 
 app.use(express.urlencoded({ 
   extended: true, 
-  charset: 'utf-8' 
+  charset: 'utf-8',
+  limit: '50mb'
 }));
 
 app.use(morgan('dev'));
+
+// Enhanced file upload configuration
 app.use(fileUpload({
   createParentPath: true,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max file size
+  limits: { 
+    fileSize: 50 * 1024 * 1024, // 50MB max file size
+    files: 1 // Allow only one file per request
+  },
   abortOnLimit: true,
-  responseOnLimit: 'Datei ist zu groß (max 50MB).'
+  responseOnLimit: 'Die Datei ist zu groß (maximal 50MB).',
+  useTempFiles: true,
+  tempFileDir: '/tmp/',
+  debug: process.env.NODE_ENV !== 'production'
 }));
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Make sure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('Created uploads directory');
+}
+
+// Serve static files with proper caching headers
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '1d', // Cache for 1 day
+  setHeaders: (res, path) => {
+    res.setHeader('Content-Disposition', 'inline');
+    // Add security headers
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  }
+}));
 
 // Explizites Setzen der Content-Type Header für alle Antworten
 app.use((req, res, next) => {
@@ -85,6 +111,15 @@ app.use((req, res, next) => {
   next();
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(500).json({ 
+    error: true, 
+    message: err.message || 'Serverfehler aufgetreten'
+  });
+});
+
 // Connect to MongoDB with improved connection options
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
@@ -92,7 +127,10 @@ mongoose.connect(process.env.MONGO_URI, {
   autoIndex: true, // Build indexes
   family: 4, // Use IPv4, skip trying IPv6
   keepAlive: true,
-  keepAliveInitialDelay: 300000
+  keepAliveInitialDelay: 300000,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 10000
 })
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.log('MongoDB Connection Error:', err));
@@ -196,26 +234,29 @@ app.get('/api/auth/user', authMiddleware, async (req, res) => {
 app.post('/api/documents/upload', authMiddleware, async (req, res) => {
   try {
     if (!req.files || Object.keys(req.files).length === 0) {
-      return res.status(400).json({ msg: 'No file uploaded' });
+      return res.status(400).json({ msg: 'Keine Datei hochgeladen' });
     }
 
     const file = req.files.file;
     const { mailboxId } = req.body;
     
+    // Require mailbox selection
+    if (!mailboxId) {
+      return res.status(400).json({ msg: 'Bitte wählen Sie einen Postkorb aus' });
+    }
+    
     // Validate mailbox exists and user has access to it
-    if (mailboxId) {
-      const mailbox = await Mailbox.findById(mailboxId);
-      if (!mailbox) {
-        return res.status(404).json({ msg: 'Mailbox not found' });
-      }
+    const mailbox = await Mailbox.findById(mailboxId);
+    if (!mailbox) {
+      return res.status(404).json({ msg: 'Postkorb nicht gefunden' });
+    }
+    
+    if (!req.user.isAdmin) {
+      const user = await User.findById(req.user.id);
+      const hasAccess = user.mailboxAccess.some(id => id.toString() === mailboxId);
       
-      if (!req.user.isAdmin) {
-        const user = await User.findById(req.user.id);
-        const hasAccess = user.mailboxAccess.some(id => id.toString() === mailboxId);
-        
-        if (!hasAccess) {
-          return res.status(403).json({ msg: 'Not authorized to access this mailbox' });
-        }
+      if (!hasAccess) {
+        return res.status(403).json({ msg: 'Keine Berechtigung für diesen Postkorb' });
       }
     }
 
@@ -224,8 +265,13 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
     const fileName = `${Date.now()}_${sanitizedName}`;
     const filePath = `uploads/${fileName}`;
     
-    // Move file to uploads directory
-    await file.mv(path.join(__dirname, filePath));
+    try {
+      // Move file to uploads directory
+      await file.mv(path.join(__dirname, filePath));
+    } catch (moveError) {
+      console.error('Error moving file:', moveError);
+      return res.status(500).json({ msg: 'Fehler beim Speichern der Datei' });
+    }
     
     // Save document info to database
     const newDocument = new Document({
@@ -233,7 +279,7 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
       path: filePath,
       type: file.mimetype,
       size: file.size,
-      mailbox: mailboxId || null,
+      mailbox: mailboxId,
       uploadedBy: req.user.id
     });
 
@@ -246,8 +292,8 @@ app.post('/api/documents/upload', authMiddleware, async (req, res) => {
       
     res.json(document);
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
+    console.error('Upload error:', err);
+    res.status(500).json({ msg: 'Serverfehler beim Hochladen' });
   }
 });
 
@@ -267,10 +313,10 @@ app.get('/api/documents', authMiddleware, async (req, res) => {
         const hasAccess = user.mailboxAccess.some(id => id.toString() === mailboxId);
         
         if (!hasAccess) {
-          return res.status(403).json({ msg: 'Not authorized to access this mailbox' });
+          return res.status(403).json({ msg: 'Keine Berechtigung für diesen Postkorb' });
         }
       }
-    } else if (!req.user.isAdmin) {
+    } else {
       // For non-admins, only show documents from accessible mailboxes
       const user = await User.findById(req.user.id);
       query.mailbox = { $in: user.mailboxAccess };
@@ -296,7 +342,7 @@ app.get('/api/documents/:id', authMiddleware, async (req, res) => {
       .populate('mailbox', 'name');
       
     if (!document) {
-      return res.status(404).json({ msg: 'Document not found' });
+      return res.status(404).json({ msg: 'Dokument nicht gefunden' });
     }
     
     // Check if user has access to this document's mailbox
@@ -307,7 +353,7 @@ app.get('/api/documents/:id', authMiddleware, async (req, res) => {
       );
       
       if (!hasAccess) {
-        return res.status(403).json({ msg: 'Not authorized to access this document' });
+        return res.status(403).json({ msg: 'Keine Berechtigung für dieses Dokument' });
       }
     }
     
@@ -324,24 +370,127 @@ app.delete('/api/documents/:id', authMiddleware, async (req, res) => {
     const document = await Document.findById(req.params.id);
     
     if (!document) {
-      return res.status(404).json({ msg: 'Document not found' });
+      return res.status(404).json({ msg: 'Dokument nicht gefunden' });
     }
     
     // Check if user has access to delete this document
     if (!req.user.isAdmin && document.uploadedBy.toString() !== req.user.id) {
-      return res.status(403).json({ msg: 'Not authorized to delete this document' });
+      return res.status(403).json({ msg: 'Keine Berechtigung zum Löschen dieses Dokuments' });
     }
     
     // Delete file from uploads directory
     const filePath = path.join(__dirname, document.path);
-    const fs = require('fs');
     
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
     
     await document.remove();
-    res.json({ msg: 'Document removed' });
+    res.json({ msg: 'Dokument entfernt' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Move document to another mailbox
+app.put('/api/documents/:id/move', authMiddleware, async (req, res) => {
+  try {
+    const { mailboxId } = req.body;
+    
+    if (!mailboxId) {
+      return res.status(400).json({ msg: 'Kein Zielpostkorb angegeben' });
+    }
+    
+    const document = await Document.findById(req.params.id);
+    
+    if (!document) {
+      return res.status(404).json({ msg: 'Dokument nicht gefunden' });
+    }
+    
+    // Check if mailbox exists
+    const mailbox = await Mailbox.findById(mailboxId);
+    if (!mailbox) {
+      return res.status(404).json({ msg: 'Zielpostkorb nicht gefunden' });
+    }
+    
+    // Check if user has access to the target mailbox
+    if (!req.user.isAdmin) {
+      const user = await User.findById(req.user.id);
+      const hasAccess = user.mailboxAccess.some(id => id.toString() === mailboxId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ msg: 'Keine Berechtigung für den Zielpostkorb' });
+      }
+      
+      // Also check if user has access to the document's current mailbox
+      if (document.mailbox) {
+        const hasSourceAccess = user.mailboxAccess.some(
+          id => id.toString() === document.mailbox.toString()
+        );
+        
+        if (!hasSourceAccess) {
+          return res.status(403).json({ msg: 'Keine Berechtigung für dieses Dokument' });
+        }
+      }
+    }
+    
+    // Update document with new mailbox
+    document.mailbox = mailboxId;
+    await document.save();
+    
+    // Return updated document
+    const updatedDocument = await Document.findById(document._id)
+      .populate('mailbox', 'name')
+      .populate('uploadedBy', 'username');
+    
+    res.json(updatedDocument);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Rename document
+app.put('/api/documents/:id/rename', authMiddleware, async (req, res) => {
+  try {
+    const { name } = req.body;
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ msg: 'Kein Name angegeben' });
+    }
+    
+    const document = await Document.findById(req.params.id);
+    
+    if (!document) {
+      return res.status(404).json({ msg: 'Dokument nicht gefunden' });
+    }
+    
+    // Check if user has access to this document
+    if (!req.user.isAdmin) {
+      const user = await User.findById(req.user.id);
+      
+      if (document.mailbox) {
+        const hasAccess = user.mailboxAccess.some(
+          id => id.toString() === document.mailbox.toString()
+        );
+        
+        if (!hasAccess) {
+          return res.status(403).json({ msg: 'Keine Berechtigung für dieses Dokument' });
+        }
+      }
+    }
+    
+    // Update document name
+    document.name = name.trim();
+    await document.save();
+    
+    // Return updated document
+    const updatedDocument = await Document.findById(document._id)
+      .populate('mailbox', 'name')
+      .populate('uploadedBy', 'username');
+    
+    res.json(updatedDocument);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
@@ -355,8 +504,13 @@ app.get('/api/health', (req, res) => {
     message: 'DMS service is running', 
     timestamp: new Date().toISOString(),
     charset: 'UTF-8',
-    version: '1.0.1'
+    version: '1.0.2'
   });
+});
+
+// Catch all API routes
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ msg: 'API endpoint nicht gefunden' });
 });
 
 // Initialize admin user and start server
