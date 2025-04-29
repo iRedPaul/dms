@@ -13,12 +13,7 @@ import {
   MenuItem,
   Paper,
   IconButton,
-  Avatar,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField
+  Avatar
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -34,11 +29,6 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [mailboxId, setMailboxId] = useState(selectedMailbox);
-  const [uploadRetryCount, setUploadRetryCount] = useState(0);
-  const [chunkSize, setChunkSize] = useState(1024 * 1024 * 2); // 2MB Chunks für bessere Zuverlässigkeit
-  const [uploadMethod, setUploadMethod] = useState('direct'); // 'direct' oder 'chunked'
-  const [fileRenameOpen, setFileRenameOpen] = useState(false);
-  const [customFileName, setCustomFileName] = useState('');
 
   // Update mailbox when prop changes
   useEffect(() => {
@@ -47,17 +37,8 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
 
   const onDrop = useCallback(acceptedFiles => {
     if (acceptedFiles.length > 0) {
-      const file = acceptedFiles[0];
-      setFile(file);
-      setCustomFileName(file.name);
+      setFile(acceptedFiles[0]);
       setError('');
-      
-      // Bei großen Dateien (> 20MB) automatisch Chunk-Upload vorschlagen
-      if (file.size > 20 * 1024 * 1024) {
-        setUploadMethod('chunked');
-      } else {
-        setUploadMethod('direct');
-      }
     }
   }, []);
 
@@ -65,11 +46,10 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
     accept: '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.txt',
-    maxSize: 100 * 1024 * 1024 // 100MB - höheres Limit für Chunk-Upload
+    maxSize: 50 * 1024 * 1024 // 50MB
   });
 
-  // Standard-Upload für kleinere Dateien
-  const handleDirectUpload = async () => {
+  const handleUpload = async () => {
     if (!file) {
       setError('Bitte wählen Sie eine Datei aus');
       return;
@@ -81,12 +61,8 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
 
     const formData = new FormData();
     
-    // Verwende den benutzerdefinierten Dateinamen, falls angegeben
-    const fileToUpload = customFileName !== file.name ? 
-      new File([file], customFileName, { type: file.type }) : 
-      file;
-    
-    formData.append('file', fileToUpload);
+    // Verwende den Originaldateinamen - keine spezielle Codierung
+    formData.append('file', file);
     
     // Add mailbox ID if selected
     if (mailboxId) {
@@ -94,120 +70,30 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
     }
 
     try {
-      const response = await axios.post('/api/documents/upload', formData, {
+      await axios.post('/api/documents/upload', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data' // Ohne charset-Parameter
         },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
             (progressEvent.loaded * 100) / progressEvent.total
           );
           setUploadProgress(percentCompleted);
-        },
-        // Längere Timeout-Zeit für große Dateien
-        timeout: 60000 // 60 Sekunden
+        }
       });
 
       setFile(null);
       if (onUploadSuccess) onUploadSuccess();
     } catch (err) {
       console.error('Upload error:', err);
-      
-      // Automatischer Retry mit Chunk-Upload bei 502-Fehler
-      if (err.response?.status === 502 && uploadRetryCount < 3) {
-        setError('Datei zu groß für direkten Upload. Versuche Chunk-Upload...');
-        setUploadMethod('chunked');
-        setUploadRetryCount(prev => prev + 1);
-        setTimeout(() => {
-          handleChunkedUpload();
-        }, 1000);
-      } else {
-        setError(err.response?.data?.msg || 'Fehler beim Hochladen der Datei. Versuchen Sie es mit einer kleineren Datei oder später erneut.');
-      }
+      setError(err.response?.data?.msg || 'Fehler beim Hochladen der Datei');
     } finally {
       setUploading(false);
-    }
-  };
-  
-  // Chunk-Upload für große Dateien
-  const handleChunkedUpload = async () => {
-    if (!file) {
-      setError('Bitte wählen Sie eine Datei aus');
-      return;
-    }
-
-    setUploading(true);
-    setUploadProgress(0);
-    setError('');
-    
-    // In einer echten Implementierung würden wir hier eine Server-API für Chunk-Uploads verwenden
-    // Diese vereinfachte Version simuliert einen Chunk-Upload mit einem einzigen Request
-    
-    try {
-      const formData = new FormData();
-      
-      // Verwende den benutzerdefinierten Dateinamen, falls angegeben
-      const fileToUpload = customFileName !== file.name ? 
-        new File([file], customFileName, { type: file.type }) : 
-        file;
-      
-      formData.append('file', fileToUpload);
-      
-      // Add mailbox ID if selected
-      if (mailboxId) {
-        formData.append('mailboxId', mailboxId);
-      }
-      
-      // Signalisiere dem Server, dass dies ein Chunk-Upload ist
-      formData.append('chunkUpload', 'true');
-
-      // Sende Request mit längerer Timeout-Zeit
-      const response = await axios.post('/api/documents/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setUploadProgress(percentCompleted);
-        },
-        // Sehr lange Timeout-Zeit für große Dateien
-        timeout: 300000 // 5 Minuten
-      });
-
-      setFile(null);
-      if (onUploadSuccess) onUploadSuccess();
-    } catch (err) {
-      console.error('Chunk upload error:', err);
-      setError('Fehler beim Chunk-Upload. Bitte kontaktieren Sie den Administrator oder versuchen Sie eine kleinere Datei.');
-    } finally {
-      setUploading(false);
-    }
-  };
-  
-  // Hauptupload-Handler, der zwischen Methoden wählt
-  const handleUpload = async () => {
-    if (uploadMethod === 'chunked') {
-      handleChunkedUpload();
-    } else {
-      handleDirectUpload();
     }
   };
 
   const handleMailboxChange = (event) => {
     setMailboxId(event.target.value);
-  };
-  
-  const handleRenameFile = () => {
-    setFileRenameOpen(true);
-  };
-  
-  const confirmRename = () => {
-    if (customFileName.trim() === '') {
-      setCustomFileName(file.name); // Fallback auf originalen Namen
-    }
-    setFileRenameOpen(false);
   };
 
   // Get file type icon color
@@ -289,7 +175,7 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
             Unterstützte Formate: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX, TXT
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            Maximale Dateigröße: 100MB
+            Maximale Dateigröße: 50MB
           </Typography>
         </Box>
       ) : (
@@ -335,7 +221,7 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
             
             <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
               <Typography variant="subtitle1" noWrap fontWeight={500}>
-                {customFileName || file.name}
+                {file.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {formatFileSize(file.size)}
@@ -343,23 +229,13 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
             </Box>
             
             {!uploading && (
-              <Box>
-                <IconButton 
-                  color="primary" 
-                  onClick={handleRenameFile}
-                  size="small"
-                  sx={{ mr: 1 }}
-                >
-                  <Typography variant="caption">Umbenennen</Typography>
-                </IconButton>
-                <IconButton 
-                  color="error" 
-                  onClick={() => setFile(null)}
-                  size="small"
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Box>
+              <IconButton 
+                color="error" 
+                onClick={() => setFile(null)}
+                size="small"
+              >
+                <DeleteIcon />
+              </IconButton>
             )}
           </Box>
           
@@ -368,29 +244,6 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
               <Typography variant="body2" color="text.secondary" align="center">
                 {uploadProgress}% hochgeladen
               </Typography>
-            </Box>
-          )}
-          
-          {!uploading && file.size > 20 * 1024 * 1024 && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Diese Datei ist relativ groß. Verwenden Sie den Chunk-Upload für mehr Zuverlässigkeit.
-            </Alert>
-          )}
-          
-          {!uploading && (
-            <Box sx={{ mt: 2 }}>
-              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                <InputLabel id="upload-method-label">Upload-Methode</InputLabel>
-                <Select
-                  labelId="upload-method-label"
-                  value={uploadMethod}
-                  label="Upload-Methode"
-                  onChange={(e) => setUploadMethod(e.target.value)}
-                >
-                  <MenuItem value="direct">Direkter Upload (für Dateien bis 10MB)</MenuItem>
-                  <MenuItem value="chunked">Chunk-Upload (für große Dateien)</MenuItem>
-                </Select>
-              </FormControl>
             </Box>
           )}
         </Paper>
@@ -451,31 +304,6 @@ function FileUploader({ onUploadSuccess, mailboxes = [], selectedMailbox = '' })
           </Button>
         </Box>
       )}
-      
-      {/* Rename Dialog */}
-      <Dialog
-        open={fileRenameOpen}
-        onClose={() => setFileRenameOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Datei umbenennen</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label="Dateiname"
-            value={customFileName}
-            onChange={(e) => setCustomFileName(e.target.value)}
-            margin="normal"
-            helperText="Geben Sie einen neuen Namen für die Datei ein. Die Dateiendung (.pdf, .jpg, usw.) sollte beibehalten werden."
-            autoFocus
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setFileRenameOpen(false)}>Abbrechen</Button>
-          <Button onClick={confirmRename} color="primary">Übernehmen</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }
