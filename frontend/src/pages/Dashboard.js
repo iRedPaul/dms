@@ -59,9 +59,9 @@ import { formatDate, formatFileSize } from '../utils/helpers';
 // Set worker path for PDF.js
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
-// Constants for layout
-const SIDEBAR_WIDTH = 320;
-const METADATA_WIDTH = 300;
+// Constants for layout (adjusted for better proportions)
+const SIDEBAR_WIDTH = 280; // Reduziert von 320
+const METADATA_WIDTH = 280; // Reduziert von 300
 
 function Dashboard() {
   const [documents, setDocuments] = useState([]);
@@ -258,12 +258,17 @@ function Dashboard() {
       );
     }
 
-    // Verwende korrekte Pfadangabe für API URL
+    // WICHTIG: Hier wird die URL korrigiert - verwende direkt /uploads/ statt /api/uploads/
+    // Verwende korrekte Pfadangabe für API URL ohne /api/ für die Datei-URLs
     const API_URL = process.env.NODE_ENV === 'production' 
-      ? (process.env.REACT_APP_API_URL || 'http://localhost:4000')
+      ? (process.env.REACT_APP_API_URL || 'https://dms.home-lan.cc')
       : `${window.location.protocol}//${window.location.hostname}:4000`;
 
-    const fileUrl = currentDocument.path ? `${API_URL}/${currentDocument.path}` : '';
+    // WICHTIG: Entferne '/api' aus der URL, wenn es am Ende steht (für bessere Kompatibilität)
+    const baseUrl = API_URL.endsWith('/api') ? API_URL.substring(0, API_URL.length - 4) : API_URL;
+    
+    // Die korrekte URL ist "baseUrl/uploads/..." statt "baseUrl/api/uploads/..."
+    const fileUrl = currentDocument.path ? `${baseUrl}/${currentDocument.path}` : '';
     
     // PDF Dokumente direkt anzeigen
     if (currentDocument.type === 'application/pdf' && fileUrl) {
@@ -321,7 +326,11 @@ function Dashboard() {
                 pageNumber={pageNumber} 
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
-                width={Math.min(800, window.innerWidth - 300)}
+                // Verwende A4-Format für die Seitenansicht (ca. 595 x 842 in Punkten)
+                // Oder passe dynamisch die Breite an, aber behalte A4-Proportion bei
+                width={Math.min(595, window.innerWidth - (SIDEBAR_WIDTH + METADATA_WIDTH + 100))}
+                height={842}
+                scale={1.0}
               />
             </Document>
           </Box>
@@ -730,7 +739,10 @@ function Dashboard() {
             bgcolor: '#f5f7fa',
             overflow: 'auto',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            // Anpassung für besseres A4-Format:
+            padding: currentDocument ? '20px 0' : 0, 
+            justifyContent: currentDocument ? 'center' : 'flex-start'
           }}
         >
           {/* Document toolbar */}
@@ -784,7 +796,12 @@ function Dashboard() {
           )}
           
           {/* Document content */}
-          <Box sx={{ flexGrow: 1 }}>
+          <Box sx={{ 
+            flexGrow: 1,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
             {renderDocumentViewer()}
           </Box>
         </Box>
