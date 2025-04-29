@@ -13,27 +13,22 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  // Aktualisierte API URL Handhabung für Cloudflare Integration
+  // API URL Handling für die korrekte Backend-Verbindung
   const API_URL = process.env.NODE_ENV === 'production' 
-    ? (process.env.REACT_APP_API_URL || 'https://dms.home-lan.cc/api')
+    ? '/api' // Wichtig: Verwende relativen Pfad statt absoluter URL
     : `${window.location.protocol}//${window.location.hostname}:4000`;
+    
+  // Entfernt unnötige Manipulationen an der API_URL
+  const getBaseURL = () => {
+    return API_URL;
+  };
 
   // Setup axios defaults and interceptors
   useEffect(() => {
-    // Set baseURL - für Cloudflare Zero Trust
-    if (typeof API_URL === 'string') {
-      // Wenn wir die Basis-URL auf /api setzen, müssen wir "/api" aus allen Anfragen entfernen
-      // da es bereits in der Basis-URL enthalten ist
-      const baseURL = API_URL.endsWith('/api') 
-        ? API_URL.substring(0, API_URL.length - 4) 
-        : API_URL;
-      axios.defaults.baseURL = baseURL;
-      console.log('API URL set to:', baseURL);
-    } else {
-      // Fallback auf sichere URL mit Domain
-      axios.defaults.baseURL = 'https://dms.home-lan.cc';
-      console.log('API URL defaulted to: https://dms.home-lan.cc');
-    }
+    // Set baseURL korrekt für den proxy pass
+    const baseURL = getBaseURL();
+    axios.defaults.baseURL = baseURL;
+    console.log('API URL set to:', baseURL);
 
     // Setup response interceptor for global error handling
     const interceptor = axios.interceptors.response.use(
@@ -75,9 +70,9 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       setAuthError(null);
-      console.log('Attempting login to:', `${axios.defaults.baseURL}/api/auth/login`);
+      console.log('Attempting login to:', `${axios.defaults.baseURL}/auth/login`);
       
-      const res = await axios.post('/api/auth/login', { username, password });
+      const res = await axios.post('/auth/login', { username, password });
       
       // Validate token format before setting it
       const { token, user } = res.data;
@@ -118,7 +113,7 @@ export const AuthProvider = ({ children }) => {
     if (token && typeof token === 'string') {
       setAuthToken(token);
       try {
-        const res = await axios.get('/api/auth/user');
+        const res = await axios.get('/auth/user');
         setCurrentUser(res.data);
         setIsAuthenticated(true);
         setAuthError(null);
