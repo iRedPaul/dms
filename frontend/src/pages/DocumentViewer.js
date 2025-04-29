@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   AppBar,
@@ -31,7 +31,11 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableRow
+  TableRow,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -46,6 +50,13 @@ import EditIcon from '@mui/icons-material/Edit';
 import DescriptionIcon from '@mui/icons-material/Description';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import CloseIcon from '@mui/icons-material/Close';
+import HighlightIcon from '@mui/icons-material/Highlight';
+import CommentIcon from '@mui/icons-material/Comment';
+import BorderColorIcon from '@mui/icons-material/BorderColor';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import FormatColorFillIcon from '@mui/icons-material/FormatColorFill';
+import SaveIcon from '@mui/icons-material/Save';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { Document, Page, pdfjs } from 'react-pdf';
 import axios from 'axios';
 import { formatDate, formatFileSize } from '../utils/helpers';
@@ -54,7 +65,7 @@ import { formatDate, formatFileSize } from '../utils/helpers';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 // Konstante für Metadata-Panel-Breite
-const METADATA_WIDTH = 350; // Breiter für bessere Nutzung des Raums
+const METADATA_WIDTH = 380; // Breiter für bessere Nutzung des Raums
 
 function DocumentViewer() {
   const [document, setDocument] = useState(null);
@@ -69,6 +80,12 @@ function DocumentViewer() {
   const [currentTab, setCurrentTab] = useState(0);
   const [metadataEditable, setMetadataEditable] = useState(false);
   const [pdfScale, setPdfScale] = useState(1.0);
+  const [activeTool, setActiveTool] = useState(null);
+  const [annotations, setAnnotations] = useState([]);
+  const [toolsMenuAnchor, setToolsMenuAnchor] = useState(null);
+  const [stampMenuAnchor, setStampMenuAnchor] = useState(null);
+  
+  const pdfContainerRef = useRef(null);
   
   const { id } = useParams();
   const navigate = useNavigate();
@@ -101,11 +118,22 @@ function DocumentViewer() {
     
     // Dynamische Anpassung der PDF-Größe basierend auf der Fenstergröße
     const handleResize = () => {
-      // Anpassen der Skalierung basierend auf der Fenstergröße
-      const viewportWidth = window.innerWidth - METADATA_WIDTH - 100;
+      // Für eine Ansicht ohne scrollen berechnen wir die verfügbare Höhe und Breite
+      const viewportWidth = window.innerWidth - METADATA_WIDTH - 80;
+      const viewportHeight = window.innerHeight - 180; // Abzug für Header, Toolbar, etc.
+      
+      // A4 Proportionen: 210mm x 297mm (≈ 1:1.414)
       const idealWidth = 595; // A4 Breite in Punkten
-      const newScale = Math.min(1.0, viewportWidth / idealWidth);
-      setPdfScale(newScale);
+      const idealHeight = 842; // A4 Höhe in Punkten
+      
+      // Skalierungsfaktoren für Breite und Höhe
+      const scaleX = viewportWidth / idealWidth;
+      const scaleY = viewportHeight / idealHeight;
+      
+      // Der kleinere Wert bestimmt die Skalierung, damit die Seite vollständig angezeigt wird
+      const newScale = Math.min(scaleX, scaleY, 1.2); // Max-Skalierung begrenzen
+      
+      setPdfScale(Math.max(newScale, 0.7)); // Minimum-Skalierung sicherstellen
     };
     
     window.addEventListener('resize', handleResize);
@@ -147,6 +175,56 @@ function DocumentViewer() {
 
   const toggleEditMode = () => {
     setMetadataEditable(!metadataEditable);
+  };
+  
+  // Annotations-Funktionalität
+  const handleSelectTool = (tool) => {
+    setActiveTool(activeTool === tool ? null : tool);
+    setToolsMenuAnchor(null);
+  };
+
+  const handleAddAnnotation = (event, type) => {
+    if (!pdfContainerRef.current) return;
+    
+    // Berechne die Position relativ zum PDF-Container
+    const rect = pdfContainerRef.current.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    const stampType = type === 'stamp' ? 'approved' : null;
+    
+    const newAnnotation = {
+      id: Date.now(),
+      type,
+      pageNumber,
+      x,
+      y,
+      stampType,
+      content: type === 'highlight' ? 'Hervorgehobener Text' : 
+              type === 'comment' ? 'Neue Bemerkung' : 
+              type === 'bookmark' ? 'Lesezeichen' : `Stempel: ${stampType}`
+    };
+    
+    setAnnotations([...annotations, newAnnotation]);
+    setStampMenuAnchor(null);
+  };
+  
+  const openToolsMenu = (event) => {
+    setToolsMenuAnchor(event.currentTarget);
+  };
+  
+  const closeToolsMenu = () => {
+    setToolsMenuAnchor(null);
+  };
+  
+  const openStampMenu = (event) => {
+    setStampMenuAnchor(event.currentTarget);
+    setToolsMenuAnchor(null);
+    setActiveTool('stamp');
+  };
+  
+  const closeStampMenu = () => {
+    setStampMenuAnchor(null);
   };
 
   // Helper function to get document type icon
@@ -192,11 +270,109 @@ function DocumentViewer() {
           borderRadius: 2,
           overflow: 'auto'
         }}>
+          {/* PDF Annotations Toolbar */}
+          <Paper 
+            elevation={1} 
+            sx={{ 
+              mb: 2, 
+              p: 1, 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+              width: '100%'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
+              <Tooltip title="Werkzeuge">
+                <IconButton 
+                  onClick={openToolsMenu}
+                  color={activeTool ? 'primary' : 'default'}
+                >
+                  <MoreVertIcon />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Markieren">
+                <IconButton 
+                  onClick={() => handleSelectTool('highlight')} 
+                  color={activeTool === 'highlight' ? 'primary' : 'default'}
+                >
+                  <HighlightIcon />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Kommentar">
+                <IconButton 
+                  onClick={() => handleSelectTool('comment')} 
+                  color={activeTool === 'comment' ? 'primary' : 'default'}
+                >
+                  <CommentIcon />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Stempel">
+                <IconButton 
+                  onClick={openStampMenu}
+                  color={activeTool === 'stamp' ? 'primary' : 'default'}
+                >
+                  <BorderColorIcon />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Lesezeichen">
+                <IconButton 
+                  onClick={() => handleSelectTool('bookmark')} 
+                  color={activeTool === 'bookmark' ? 'primary' : 'default'}
+                >
+                  <BookmarkIcon />
+                </IconButton>
+              </Tooltip>
+              
+              <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+              
+              <Tooltip title="Vorherige Seite">
+                <span>
+                  <IconButton 
+                    disabled={pageNumber <= 1}
+                    onClick={goToPrevPage}
+                  >
+                    <NavigateBeforeIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              
+              <Typography sx={{ mx: 1, fontWeight: 500, minWidth: 80, textAlign: 'center' }}>
+                {pageNumber} / {numPages || '?'}
+              </Typography>
+              
+              <Tooltip title="Nächste Seite">
+                <span>
+                  <IconButton 
+                    disabled={pageNumber >= numPages}
+                    onClick={goToNextPage}
+                  >
+                    <NavigateNextIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Box>
+            
+            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+            
+            <Tooltip title="Annotationen speichern">
+              <IconButton disabled>
+                <SaveIcon />
+              </IconButton>
+            </Tooltip>
+          </Paper>
+          
           {pdfLoading && (
             <Skeleton 
               variant="rectangular" 
-              width={595} // A4 width in points
-              height={842} // A4 height in points
+              width={595 * pdfScale} 
+              height={842 * pdfScale}
               animation="wave"
               sx={{ borderRadius: 2 }}
             />
@@ -212,7 +388,20 @@ function DocumentViewer() {
             borderRadius: 2,
             bgcolor: 'white',
             position: 'relative'
-          }}>
+          }}
+            ref={pdfContainerRef}
+            // PDF-Annotation-Handling
+            onClick={(e) => {
+              if (activeTool) {
+                handleAddAnnotation(e, activeTool);
+                
+                // Deaktiviere Tool nach Verwendung bei Kommentaren und Lesezeichen
+                if (activeTool === 'comment' || activeTool === 'bookmark') {
+                  setActiveTool(null);
+                }
+              }
+            }}
+          >
             <Document
               file={fileUrl}
               onLoadSuccess={onDocumentLoadSuccess}
@@ -230,14 +419,60 @@ function DocumentViewer() {
             >
               <Page 
                 pageNumber={pageNumber} 
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                // Verbesserte Skalierung für bessere Anpassung
+                renderTextLayer={true} // Aktiviert Textebene für Textauswahl
+                renderAnnotationLayer={true} // Aktiviert Annotationsebene
+                customTextRenderer={({ str, itemIndex }) => {
+                  // Erlaube Textauswahl (mit Hilfe von react-pdf)
+                  return str;
+                }}
                 width={595 * pdfScale} // A4 Breite mit Skalierung
                 height={842 * pdfScale} // A4 Höhe mit Skalierung
                 scale={1.0}
                 error={null}
               />
+              
+              {/* Render Annotations */}
+              {annotations
+                .filter(ann => ann.pageNumber === pageNumber)
+                .map(annotation => (
+                  <div 
+                    key={annotation.id}
+                    style={{
+                      position: 'absolute',
+                      left: annotation.x - 12,
+                      top: annotation.y - 12,
+                      zIndex: 1000
+                    }}
+                  >
+                    {annotation.type === 'highlight' && (
+                      <HighlightIcon color="warning" />
+                    )}
+                    {annotation.type === 'comment' && (
+                      <CommentIcon color="primary" />
+                    )}
+                    {annotation.type === 'stamp' && (
+                      <div style={{ 
+                        padding: '4px 8px', 
+                        background: 'rgba(244, 67, 54, 0.1)', 
+                        border: '1px solid #F44336',
+                        borderRadius: '4px',
+                        color: '#F44336',
+                        fontWeight: 'bold',
+                        fontSize: '10px',
+                        transform: 'rotate(-15deg)'
+                      }}>
+                        {annotation.stampType === 'approved' ? 'GENEHMIGT' : 
+                         annotation.stampType === 'rejected' ? 'ABGELEHNT' : 
+                         annotation.stampType === 'draft' ? 'ENTWURF' : 
+                         annotation.stampType === 'received' ? 'ERHALTEN' : 'STEMPEL'}
+                      </div>
+                    )}
+                    {annotation.type === 'bookmark' && (
+                      <BookmarkIcon color="success" />
+                    )}
+                  </div>
+                ))
+              }
             </Document>
           </Box>
           
@@ -245,43 +480,6 @@ function DocumentViewer() {
             <Alert severity="error" sx={{ mt: 2, width: '100%' }}>
               Fehler beim Laden des PDFs. Bitte versuchen Sie, die Datei herunterzuladen.
             </Alert>
-          )}
-          
-          {numPages && (
-            <Box 
-              sx={{ 
-                mt: 2, 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 2,
-                bgcolor: 'background.paper',
-                p: 1.5, 
-                borderRadius: 2,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-              }}
-            >
-              <Button 
-                variant="outlined" 
-                disabled={pageNumber <= 1}
-                onClick={goToPrevPage}
-                startIcon={<NavigateBeforeIcon />}
-                sx={{ borderRadius: 2 }}
-              >
-                Vorherige
-              </Button>
-              <Typography sx={{ mx: 2, fontWeight: 500 }}>
-                Seite {pageNumber} von {numPages}
-              </Typography>
-              <Button 
-                variant="outlined" 
-                disabled={pageNumber >= numPages}
-                onClick={goToNextPage}
-                endIcon={<NavigateNextIcon />}
-                sx={{ borderRadius: 2 }}
-              >
-                Nächste
-              </Button>
-            </Box>
           )}
         </Box>
       );
@@ -627,6 +825,158 @@ function DocumentViewer() {
           </Box>
         )}
       </Box>
+      
+      {/* Tools Menu */}
+      <Menu
+        anchorEl={toolsMenuAnchor}
+        open={Boolean(toolsMenuAnchor)}
+        onClose={closeToolsMenu}
+      >
+        <MenuItem onClick={() => handleSelectTool('highlight')}>
+          <ListItemIcon>
+            <HighlightIcon fontSize="small" color={activeTool === 'highlight' ? 'primary' : 'inherit'} />
+          </ListItemIcon>
+          <ListItemText primary="Text markieren" />
+        </MenuItem>
+        <MenuItem onClick={() => handleSelectTool('comment')}>
+          <ListItemIcon>
+            <CommentIcon fontSize="small" color={activeTool === 'comment' ? 'primary' : 'inherit'} />
+          </ListItemIcon>
+          <ListItemText primary="Kommentar hinzufügen" />
+        </MenuItem>
+        <MenuItem onClick={openStampMenu}>
+          <ListItemIcon>
+            <BorderColorIcon fontSize="small" color={activeTool === 'stamp' ? 'primary' : 'inherit'} />
+          </ListItemIcon>
+          <ListItemText primary="Stempel hinzufügen" />
+        </MenuItem>
+        <MenuItem onClick={() => handleSelectTool('bookmark')}>
+          <ListItemIcon>
+            <BookmarkIcon fontSize="small" color={activeTool === 'bookmark' ? 'primary' : 'inherit'} />
+          </ListItemIcon>
+          <ListItemText primary="Lesezeichen setzen" />
+        </MenuItem>
+      </Menu>
+      
+      {/* Stamps Menu */}
+      <Menu
+        anchorEl={stampMenuAnchor}
+        open={Boolean(stampMenuAnchor)}
+        onClose={closeStampMenu}
+      >
+        <MenuItem onClick={(e) => {
+          closeStampMenu();
+          const newAnnotation = {
+            id: Date.now(),
+            type: 'stamp',
+            pageNumber,
+            x: 200,
+            y: 200,
+            stampType: 'approved',
+            content: 'Stempel: GENEHMIGT'
+          };
+          setAnnotations([...annotations, newAnnotation]);
+        }}>
+          <ListItemText 
+            primary={
+              <Box sx={{ 
+                p: '4px 8px', 
+                borderRadius: '4px',
+                color: '#4CAF50',
+                fontWeight: 'bold',
+                border: '1px solid #4CAF50',
+                display: 'inline-block'
+              }}>
+                GENEHMIGT
+              </Box>
+            }
+          />
+        </MenuItem>
+        <MenuItem onClick={(e) => {
+          closeStampMenu();
+          const newAnnotation = {
+            id: Date.now(),
+            type: 'stamp',
+            pageNumber,
+            x: 200,
+            y: 200,
+            stampType: 'rejected',
+            content: 'Stempel: ABGELEHNT'
+          };
+          setAnnotations([...annotations, newAnnotation]);
+        }}>
+          <ListItemText 
+            primary={
+              <Box sx={{ 
+                p: '4px 8px', 
+                borderRadius: '4px',
+                color: '#F44336',
+                fontWeight: 'bold',
+                border: '1px solid #F44336',
+                display: 'inline-block'
+              }}>
+                ABGELEHNT
+              </Box>
+            }
+          />
+        </MenuItem>
+        <MenuItem onClick={(e) => {
+          closeStampMenu();
+          const newAnnotation = {
+            id: Date.now(),
+            type: 'stamp',
+            pageNumber,
+            x: 200,
+            y: 200,
+            stampType: 'draft',
+            content: 'Stempel: ENTWURF'
+          };
+          setAnnotations([...annotations, newAnnotation]);
+        }}>
+          <ListItemText 
+            primary={
+              <Box sx={{ 
+                p: '4px 8px', 
+                borderRadius: '4px',
+                color: '#FF9800',
+                fontWeight: 'bold',
+                border: '1px solid #FF9800',
+                display: 'inline-block'
+              }}>
+                ENTWURF
+              </Box>
+            }
+          />
+        </MenuItem>
+        <MenuItem onClick={(e) => {
+          closeStampMenu();
+          const newAnnotation = {
+            id: Date.now(),
+            type: 'stamp',
+            pageNumber,
+            x: 200,
+            y: 200,
+            stampType: 'received',
+            content: 'Stempel: ERHALTEN'
+          };
+          setAnnotations([...annotations, newAnnotation]);
+        }}>
+          <ListItemText 
+            primary={
+              <Box sx={{ 
+                p: '4px 8px', 
+                borderRadius: '4px',
+                color: '#2196F3',
+                fontWeight: 'bold',
+                border: '1px solid #2196F3',
+                display: 'inline-block'
+              }}>
+                ERHALTEN
+              </Box>
+            }
+          />
+        </MenuItem>
+      </Menu>
       
       {/* Document Info Drawer */}
       <Drawer
