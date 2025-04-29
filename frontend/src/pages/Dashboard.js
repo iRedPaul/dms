@@ -1023,7 +1023,7 @@ function Dashboard() {
             }}
           >
             {renderMetadata()}
-          </Box>
+          </SwipeableDrawer>
         </Box>
       </Box>
     );
